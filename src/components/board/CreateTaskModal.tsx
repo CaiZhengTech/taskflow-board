@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { TaskStatus, TaskPriority, COLUMNS } from '@/types/task';
 import { useTaskStore } from '@/stores/taskStore';
 import {
@@ -34,6 +34,13 @@ export function CreateTaskModal({ isOpen, onClose, defaultStatus }: CreateTaskMo
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [dueDate, setDueDate] = useState('');
 
+  // Sync status with defaultStatus when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      setStatus(defaultStatus);
+    }
+  }, [isOpen, defaultStatus]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -51,7 +58,6 @@ export function CreateTaskModal({ isOpen, onClose, defaultStatus }: CreateTaskMo
     // Reset form
     setTitle('');
     setDescription('');
-    setStatus(defaultStatus);
     setPriority('medium');
     setDueDate('');
     onClose();
@@ -61,7 +67,6 @@ export function CreateTaskModal({ isOpen, onClose, defaultStatus }: CreateTaskMo
     if (!open) {
       setTitle('');
       setDescription('');
-      setStatus(defaultStatus);
       setPriority('medium');
       setDueDate('');
       onClose();
