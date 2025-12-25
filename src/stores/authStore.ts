@@ -1,14 +1,21 @@
 import { create } from 'zustand';
-import { User } from '@/types/task';
+
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  name?: string;
+}
 
 interface AuthStore {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => boolean;
   logout: () => void;
-  register: (username: string, email: string, password: string) => Promise<boolean>;
+  setUser: (user: User) => void;
+  setIsAuthenticated: (value: boolean) => void;
 }
 
 // Demo user for testing
@@ -16,6 +23,7 @@ const demoUser: User = {
   id: 'user-1',
   username: 'demo',
   email: 'demo@taskboard.dev',
+  name: 'Demo User',
 };
 
 export const useAuthStore = create<AuthStore>((set) => ({
@@ -23,19 +31,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
   isAuthenticated: false,
   isLoading: false,
 
-  login: async (username: string, password: string) => {
-    set({ isLoading: true });
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Demo auth - accept demo/demo123
+  login: (username: string, password: string) => {
     if (username === 'demo' && password === 'demo123') {
-      set({ user: demoUser, isAuthenticated: true, isLoading: false });
+      set({ user: demoUser, isAuthenticated: true });
       return true;
     }
-    
-    set({ isLoading: false });
     return false;
   },
 
@@ -43,19 +43,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
     set({ user: null, isAuthenticated: false });
   },
 
-  register: async (username: string, email: string, _password: string) => {
-    set({ isLoading: true });
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      username,
-      email,
-    };
-    
-    set({ user: newUser, isAuthenticated: true, isLoading: false });
-    return true;
+  setUser: (user: User) => {
+    set({ user });
+  },
+
+  setIsAuthenticated: (value: boolean) => {
+    set({ isAuthenticated: value });
   },
 }));
