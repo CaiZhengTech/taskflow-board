@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -11,7 +11,7 @@ import {
   closestCorners,
 } from '@dnd-kit/core';
 import { COLUMNS, Task, TaskStatus } from '@/types/task';
-import { useTaskStore } from '@/stores/taskStore';
+import { useTaskStore, filterTasks } from '@/stores/taskStore';
 import { KanbanColumn } from './KanbanColumn';
 import { TaskCard } from './TaskCard';
 import { CreateTaskModal } from './CreateTaskModal';
@@ -22,8 +22,15 @@ export function KanbanBoard() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [createStatus, setCreateStatus] = useState<TaskStatus>('backlog');
   
-  const { tasks, moveTask, reorderTasks, selectedTaskId, setSelectedTaskId } = useTaskStore();
-  const selectedTask = tasks.find(t => t.id === selectedTaskId);
+  const allTasks = useTaskStore(state => state.tasks);
+  const filters = useTaskStore(state => state.filters);
+  const moveTask = useTaskStore(state => state.moveTask);
+  const reorderTasks = useTaskStore(state => state.reorderTasks);
+  const selectedTaskId = useTaskStore(state => state.selectedTaskId);
+  const setSelectedTaskId = useTaskStore(state => state.setSelectedTaskId);
+  
+  const filteredTasks = useMemo(() => filterTasks(allTasks, filters), [allTasks, filters]);
+  const selectedTask = allTasks.find(t => t.id === selectedTaskId);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -34,11 +41,11 @@ export function KanbanBoard() {
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    const task = tasks.find(t => t.id === event.active.id);
+    const task = allTasks.find(t => t.id === event.active.id);
     if (task) {
       setActiveTask(task);
     }
-  }, [tasks]);
+  }, [allTasks]);
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event;
@@ -47,26 +54,24 @@ export function KanbanBoard() {
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    const activeTask = tasks.find(t => t.id === activeId);
-    if (!activeTask) return;
+    const activeTaskItem = allTasks.find(t => t.id === activeId);
+    if (!activeTaskItem) return;
 
-    // Check if dropping over a column
     const isOverColumn = COLUMNS.some(col => col.id === overId);
     if (isOverColumn) {
       const newStatus = overId as TaskStatus;
-      if (activeTask.status !== newStatus) {
-        const tasksInColumn = tasks.filter(t => t.status === newStatus);
+      if (activeTaskItem.status !== newStatus) {
+        const tasksInColumn = allTasks.filter(t => t.status === newStatus);
         moveTask(activeId, newStatus, tasksInColumn.length);
       }
       return;
     }
 
-    // Dropping over another task
-    const overTask = tasks.find(t => t.id === overId);
-    if (overTask && activeTask.status !== overTask.status) {
+    const overTask = allTasks.find(t => t.id === overId);
+    if (overTask && activeTaskItem.status !== overTask.status) {
       moveTask(activeId, overTask.status, overTask.order_index);
     }
-  }, [tasks, moveTask]);
+  }, [allTasks, moveTask]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -79,13 +84,13 @@ export function KanbanBoard() {
 
     if (activeId === overId) return;
 
-    const activeTask = tasks.find(t => t.id === activeId);
-    const overTask = tasks.find(t => t.id === overId);
+    const activeTaskItem = allTasks.find(t => t.id === activeId);
+    const overTask = allTasks.find(t => t.id === overId);
 
-    if (activeTask && overTask && activeTask.status === overTask.status) {
-      reorderTasks(activeTask.status, activeId, overId);
+    if (activeTaskItem && overTask && activeTaskItem.status === overTask.status) {
+      reorderTasks(activeTaskItem.status, activeId, overId);
     }
-  }, [tasks, reorderTasks]);
+  }, [allTasks, reorderTasks]);
 
   const handleAddTask = (status: TaskStatus) => {
     setCreateStatus(status);

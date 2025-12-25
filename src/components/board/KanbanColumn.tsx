@@ -1,7 +1,8 @@
+import { useMemo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { TaskStatus } from '@/types/task';
-import { useTaskStore } from '@/stores/taskStore';
+import { useTaskStore, getTasksByStatus } from '@/stores/taskStore';
 import { TaskCard } from './TaskCard';
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -14,7 +15,13 @@ interface KanbanColumnProps {
 }
 
 export function KanbanColumn({ id, title, colorClass, onAddTask }: KanbanColumnProps) {
-  const tasks = useTaskStore(state => state.getTasksByStatus(id));
+  const allTasks = useTaskStore(state => state.tasks);
+  const filters = useTaskStore(state => state.filters);
+  
+  const tasks = useMemo(() => 
+    getTasksByStatus(allTasks, filters, id),
+    [allTasks, filters, id]
+  );
   
   const { setNodeRef, isOver } = useDroppable({ id });
 
