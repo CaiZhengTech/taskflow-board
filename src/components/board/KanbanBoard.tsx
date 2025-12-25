@@ -13,7 +13,7 @@ import {
 import { COLUMNS, Task, TaskStatus } from '@/types/task';
 import { useTaskStore, filterTasks } from '@/stores/taskStore';
 import { KanbanColumn } from './KanbanColumn';
-import { TaskCard } from './TaskCard';
+import { TaskCardOverlay } from './TaskCard';
 import { CreateTaskModal } from './CreateTaskModal';
 import { TaskDetailPanel } from './TaskDetailPanel';
 
@@ -121,7 +121,7 @@ export function KanbanBoard() {
         <DragOverlay>
           {activeTask && (
             <div className="rotate-3 scale-105">
-              <TaskCard task={activeTask} />
+              <TaskCardOverlay task={activeTask} />
             </div>
           )}
         </DragOverlay>
