@@ -1,27 +1,17 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
+import { useAuthStore } from '@/stores/authStore';
+import { LoginPage } from './pages/LoginPage';
+import { BoardPage } from './pages/BoardPage';
+import { Toaster } from '@/components/ui/toaster';
 
-const queryClient = new QueryClient();
+const App = () => {
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+  return (
+    <>
+      {isAuthenticated ? <BoardPage /> : <LoginPage />}
       <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+    </>
+  );
+};
 
 export default App;
