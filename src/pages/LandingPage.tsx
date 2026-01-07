@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SuccessModal } from '@/components/ui/SuccessModal';
 import { 
   CheckCircle2, 
   Zap, 
@@ -11,12 +12,22 @@ import {
   Calendar,
   ChevronRight,
   Star,
-  Play
+  Play,
+  ExternalLink
 } from 'lucide-react';
+
+// =============================================================================
+// CALENDLY CONFIGURATION
+// To add your Calendly scheduling, replace the URL below with your Calendly link.
+// Example: 'https://calendly.com/your-username/30min'
+// =============================================================================
+const CALENDLY_URL = 'https://calendly.com/YOUR_USERNAME/30min'; // <-- REPLACE THIS
 
 export function LandingPage() {
   const { setIsAuthenticated, setUser } = useAuthStore();
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
 
   const handleDemoLogin = () => {
     setUser({ 
@@ -26,6 +37,21 @@ export function LandingPage() {
       name: 'Demo User'
     });
     setIsAuthenticated(true);
+    setSuccessMessage({
+      title: 'Welcome to TaskBoard!',
+      message: "You're now logged in as a demo user. Explore all features!"
+    });
+    setShowSuccessModal(true);
+  };
+
+  // Opens Calendly in a new tab (or you can embed it)
+  const handleBookDemo = () => {
+    if (CALENDLY_URL.includes('YOUR_USERNAME')) {
+      // Fallback: show demo booking form section
+      document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      window.open(CALENDLY_URL, '_blank');
+    }
   };
 
   return (
@@ -43,7 +69,12 @@ export function LandingPage() {
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
             <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-            <a href="#demo" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Book Demo</a>
+            <button 
+              onClick={handleBookDemo}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Book Demo
+            </button>
           </div>
           
           <div className="flex items-center gap-3">
@@ -81,11 +112,12 @@ export function LandingPage() {
               <Play className="mr-2 h-5 w-5" />
               Try TaskBoard Free
             </Button>
-            <Button size="lg" variant="outline" className="px-8 py-6 text-lg" asChild>
-              <a href="#demo">
-                <Calendar className="mr-2 h-5 w-5" />
-                Book a Demo
-              </a>
+            <Button size="lg" variant="outline" className="px-8 py-6 text-lg" onClick={handleBookDemo}>
+              <Calendar className="mr-2 h-5 w-5" />
+              Book a Demo
+              {!CALENDLY_URL.includes('YOUR_USERNAME') && (
+                <ExternalLink className="ml-2 h-4 w-4" />
+              )}
             </Button>
           </div>
         </div>
@@ -260,33 +292,78 @@ export function LandingPage() {
           </div>
           
           <div className="p-8 rounded-2xl bg-card border border-border">
-            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-2 block">Name</label>
-                  <Input placeholder="Your name" />
+            {/* 
+              =================================================================
+              CALENDLY INTEGRATION OPTIONS:
+              
+              Option 1: Direct Link (Current Implementation)
+              - Uses CALENDLY_URL constant at top of file
+              - Opens Calendly in new tab when "Book a Demo" is clicked
+              
+              Option 2: Embed Widget (Uncomment below and add script to index.html)
+              - Add to index.html: <script src="https://assets.calendly.com/assets/external/widget.js"></script>
+              - Then uncomment the iframe below
+              
+              <div className="calendly-inline-widget" 
+                   data-url="https://calendly.com/YOUR_USERNAME/30min" 
+                   style={{ minWidth: '320px', height: '630px' }} 
+              />
+              =================================================================
+            */}
+            
+            {CALENDLY_URL.includes('YOUR_USERNAME') ? (
+              // Fallback form when Calendly not configured
+              <form className="space-y-4" onSubmit={(e) => {
+                e.preventDefault();
+                setSuccessMessage({
+                  title: 'Demo Request Submitted!',
+                  message: "We'll get back to you within 24 hours to schedule your demo."
+                });
+                setShowSuccessModal(true);
+              }}>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block">Name</label>
+                    <Input placeholder="Your name" required />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block">Company</label>
+                    <Input placeholder="Company name" />
+                  </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-foreground mb-2 block">Company</label>
-                  <Input placeholder="Company name" />
+                  <label className="text-sm font-medium text-foreground mb-2 block">Email</label>
+                  <Input type="email" placeholder="you@company.com" required />
                 </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">Team Size</label>
+                  <Input placeholder="e.g., 5-10 people" />
+                </div>
+                <Button type="submit" className="w-full" size="lg">
+                  <Calendar className="mr-2 h-5 w-5" />
+                  Request Demo
+                </Button>
+                <p className="text-center text-sm text-muted-foreground">
+                  We'll get back to you within 24 hours.
+                </p>
+              </form>
+            ) : (
+              // When Calendly is configured, show direct booking button
+              <div className="text-center py-8">
+                <Calendar className="h-16 w-16 text-primary mx-auto mb-6" />
+                <h3 className="text-xl font-semibold text-foreground mb-4">
+                  Schedule a 30-minute call
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  Pick a time that works for you and we'll show you how TaskBoard can help your team.
+                </p>
+                <Button size="lg" onClick={handleBookDemo}>
+                  <Calendar className="mr-2 h-5 w-5" />
+                  Open Scheduling
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </Button>
               </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Email</label>
-                <Input type="email" placeholder="you@company.com" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Team Size</label>
-                <Input placeholder="e.g., 5-10 people" />
-              </div>
-              <Button className="w-full" size="lg">
-                <Calendar className="mr-2 h-5 w-5" />
-                Request Demo
-              </Button>
-              <p className="text-center text-sm text-muted-foreground">
-                We'll get back to you within 24 hours.
-              </p>
-            </form>
+            )}
           </div>
         </div>
       </section>
@@ -308,13 +385,35 @@ export function LandingPage() {
 
       {/* Login Modal */}
       {showLoginModal && (
-        <LoginModal onClose={() => setShowLoginModal(false)} />
+        <LoginModal 
+          onClose={() => setShowLoginModal(false)} 
+          onSuccess={() => {
+            setSuccessMessage({
+              title: 'Welcome Back!',
+              message: 'Successfully logged in to your account.'
+            });
+            setShowSuccessModal(true);
+          }}
+        />
       )}
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title={successMessage.title}
+        message={successMessage.message}
+      />
     </div>
   );
 }
 
-function LoginModal({ onClose }: { onClose: () => void }) {
+interface LoginModalProps {
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function LoginModal({ onClose, onSuccess }: LoginModalProps) {
   const { login } = useAuthStore();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -325,6 +424,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     if (login(username, password)) {
       onClose();
+      onSuccess();
     } else {
       setError('Invalid credentials. Try demo / demo123');
     }
