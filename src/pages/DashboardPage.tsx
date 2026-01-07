@@ -2,19 +2,18 @@ import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SuccessModal } from '@/components/ui/SuccessModal';
+import { UserDropdown } from '@/components/dashboard/UserDropdown';
+import { ActivitiesDropdown } from '@/components/dashboard/ActivitiesDropdown';
+import { UserSettingsPage } from '@/pages/UserSettingsPage';
 import { 
   LayoutDashboard, 
   Plus, 
   Users, 
-  Settings, 
-  LogOut,
-  ChevronRight,
   Hash,
-  User,
-  Mail,
-  Pencil,
-  Check,
-  X
+  ChevronRight,
+  Archive,
+  FolderOpen
 } from 'lucide-react';
 
 interface Workspace {
@@ -23,32 +22,45 @@ interface Workspace {
   code: string;
   role: 'owner' | 'admin' | 'member' | 'viewer';
   memberCount: number;
+  isArchived?: boolean;
 }
 
 // Mock workspaces for demo
+// TODO: Replace with actual API calls to PostgreSQL backend
 const mockWorkspaces: Workspace[] = [
   { id: '1', name: 'Engineering Team', code: 'ENG-2024', role: 'owner', memberCount: 8 },
   { id: '2', name: 'Design Sprint', code: 'DSN-001', role: 'member', memberCount: 4 },
 ];
 
+const mockArchivedWorkspaces: Workspace[] = [
+  { id: '3', name: 'Q3 Marketing Campaign', code: 'MKT-Q3', role: 'owner', memberCount: 6, isArchived: true },
+  { id: '4', name: 'Website Redesign 2023', code: 'WEB-23', role: 'admin', memberCount: 5, isArchived: true },
+];
+
 export function DashboardPage({ onSelectWorkspace }: { onSelectWorkspace: (workspace: Workspace) => void }) {
-  const { user, logout, setUser } = useAuthStore();
-  const [workspaces] = useState<Workspace[]>(mockWorkspaces);
+  const { user } = useAuthStore();
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(mockWorkspaces);
+  const [archivedWorkspaces] = useState<Workspace[]>(mockArchivedWorkspaces);
   const [joinCode, setJoinCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [showNewWorkspace, setShowNewWorkspace] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
-
-  const [editingName, setEditingName] = useState(false);
-  const [editName, setEditName] = useState(user?.name || '');
-  const [editingEmail, setEditingEmail] = useState(false);
-  const [editEmail, setEditEmail] = useState(user?.email || '');
+  const [showArchived, setShowArchived] = useState(false);
+  
+  // Settings page state
+  const [showSettings, setShowSettings] = useState<'profile' | 'security' | 'theme' | null>(null);
+  
+  // Success modal state
+  const [successModal, setSuccessModal] = useState<{ title: string; message: string } | null>(null);
 
   const handleJoinWorkspace = () => {
     if (joinCode.trim()) {
-      // In real app, this would call an API
-      alert(`Joining workspace with code: ${joinCode}`);
+      // TODO: Replace with actual API call to join workspace
+      // API endpoint: POST /api/workspaces/join { code: joinCode }
+      setSuccessModal({
+        title: 'Joining Workspace',
+        message: `Looking for workspace with code: ${joinCode}...`
+      });
       setJoinCode('');
       setShowJoinInput(false);
     }
@@ -56,7 +68,8 @@ export function DashboardPage({ onSelectWorkspace }: { onSelectWorkspace: (works
 
   const handleCreateWorkspace = () => {
     if (newWorkspaceName.trim()) {
-      // In real app, this would call an API
+      // TODO: Replace with actual API call to create workspace
+      // API endpoint: POST /api/workspaces { name: newWorkspaceName }
       const newWorkspace: Workspace = {
         id: Date.now().toString(),
         name: newWorkspaceName,
@@ -64,22 +77,21 @@ export function DashboardPage({ onSelectWorkspace }: { onSelectWorkspace: (works
         role: 'owner',
         memberCount: 1
       };
-      onSelectWorkspace(newWorkspace);
+      
+      // Add to local state (will be replaced with actual DB insertion)
+      setWorkspaces([...workspaces, newWorkspace]);
+      setShowNewWorkspace(false);
+      setNewWorkspaceName('');
+      
+      setSuccessModal({
+        title: 'Workspace Created!',
+        message: `"${newWorkspace.name}" is ready. Share code ${newWorkspace.code} to invite others.`
+      });
     }
   };
 
-  const handleSaveName = () => {
-    if (user && editName.trim()) {
-      setUser({ ...user, name: editName.trim() });
-      setEditingName(false);
-    }
-  };
-
-  const handleSaveEmail = () => {
-    if (user && editEmail.trim()) {
-      setUser({ ...user, email: editEmail.trim() });
-      setEditingEmail(false);
-    }
+  const handleSettingsNavigate = (section: 'profile' | 'security' | 'theme') => {
+    setShowSettings(section);
   };
 
   const roleColors: Record<string, string> = {
@@ -89,134 +101,20 @@ export function DashboardPage({ onSelectWorkspace }: { onSelectWorkspace: (works
     viewer: 'bg-muted text-muted-foreground'
   };
 
+  // Show settings page if active
   if (showSettings) {
     return (
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b border-border bg-card">
-          <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={() => setShowSettings(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                ← Back
-              </button>
-              <h1 className="text-xl font-semibold text-foreground">Account Settings</h1>
-            </div>
-          </div>
-        </header>
-
-        <div className="container mx-auto px-6 py-10 max-w-2xl">
-          <div className="space-y-8">
-            {/* Profile Section */}
-            <div className="p-6 rounded-xl border border-border bg-card">
-              <h2 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Profile
-              </h2>
-              
-              <div className="space-y-6">
-                {/* Avatar */}
-                <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary">
-                    {user?.name?.charAt(0).toUpperCase() || 'U'}
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Profile Photo</p>
-                    <Button variant="outline" size="sm" className="mt-2">
-                      Change Photo
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Name */}
-                <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border">
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground mb-1">Display Name</p>
-                    {editingName ? (
-                      <div className="flex items-center gap-2">
-                        <Input 
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          className="h-8"
-                          autoFocus
-                        />
-                        <Button size="sm" variant="ghost" onClick={handleSaveName}>
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <p className="text-foreground font-medium">{user?.name || 'Not set'}</p>
-                    )}
-                  </div>
-                  {!editingName && (
-                    <Button variant="ghost" size="sm" onClick={() => setEditingName(true)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-
-                {/* Email */}
-                <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border">
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground mb-1">Email</p>
-                    {editingEmail ? (
-                      <div className="flex items-center gap-2">
-                        <Input 
-                          type="email"
-                          value={editEmail}
-                          onChange={(e) => setEditEmail(e.target.value)}
-                          className="h-8"
-                          autoFocus
-                        />
-                        <Button size="sm" variant="ghost" onClick={handleSaveEmail}>
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setEditingEmail(false)}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <p className="text-foreground font-medium">{user?.email || 'Not set'}</p>
-                    )}
-                  </div>
-                  {!editingEmail && (
-                    <Button variant="ghost" size="sm" onClick={() => setEditingEmail(true)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-
-                {/* Username (read-only) */}
-                <div className="p-4 rounded-lg bg-muted/30 border border-border">
-                  <p className="text-sm text-muted-foreground mb-1">Username</p>
-                  <p className="text-foreground font-medium">@{user?.username}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Danger Zone */}
-            <div className="p-6 rounded-xl border border-destructive/30 bg-destructive/5">
-              <h2 className="text-lg font-semibold text-destructive mb-4">Danger Zone</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                Once you delete your account, there is no going back. Please be certain.
-              </p>
-              <Button variant="destructive">Delete Account</Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <UserSettingsPage 
+        initialSection={showSettings}
+        onBack={() => setShowSettings(null)}
+      />
     );
   }
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card">
+      <header className="border-b border-border bg-card sticky top-0 z-40">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
@@ -225,15 +123,12 @@ export function DashboardPage({ onSelectWorkspace }: { onSelectWorkspace: (works
             <span className="text-xl font-bold text-foreground">TaskBoard</span>
           </div>
           
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => setShowSettings(true)}>
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
-            </Button>
-            <Button variant="ghost" size="sm" onClick={logout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign out
-            </Button>
+          <div className="flex items-center gap-2">
+            {/* Activities dropdown (3-line menu) */}
+            <ActivitiesDropdown />
+            
+            {/* User dropdown (profile picture) */}
+            <UserDropdown onNavigate={handleSettingsNavigate} />
           </div>
         </div>
       </header>
@@ -297,9 +192,12 @@ export function DashboardPage({ onSelectWorkspace }: { onSelectWorkspace: (works
             </div>
           )}
 
-          {/* Workspaces List */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">Your Workspaces</h2>
+          {/* Your Workspaces */}
+          <div className="space-y-4 mb-10">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <FolderOpen className="h-5 w-5" />
+              Your Workspaces
+            </h2>
             
             {workspaces.length === 0 ? (
               <div className="p-10 rounded-xl border border-dashed border-border text-center">
@@ -350,8 +248,77 @@ export function DashboardPage({ onSelectWorkspace }: { onSelectWorkspace: (works
               </div>
             )}
           </div>
+
+          {/* Previous/Archived Workspaces */}
+          <div className="space-y-4">
+            <button
+              onClick={() => setShowArchived(!showArchived)}
+              className="flex items-center gap-2 text-lg font-semibold text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Archive className="h-5 w-5" />
+              Previous Workspaces
+              <ChevronRight className={`h-4 w-4 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
+              <span className="text-sm font-normal">({archivedWorkspaces.length})</span>
+            </button>
+            
+            {showArchived && (
+              <div className="grid gap-4 animate-fade-in">
+                {archivedWorkspaces.length === 0 ? (
+                  <p className="text-muted-foreground py-4">No archived workspaces.</p>
+                ) : (
+                  archivedWorkspaces.map((workspace) => (
+                    <div
+                      key={workspace.id}
+                      className="w-full p-6 rounded-xl border border-border bg-muted/30 opacity-75"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-xl font-bold text-muted-foreground">
+                            {workspace.name.charAt(0)}
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold text-muted-foreground">
+                              {workspace.name}
+                            </h3>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                                <Hash className="h-3 w-3" />
+                                {workspace.code}
+                              </span>
+                              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                                <Users className="h-3 w-3" />
+                                {workspace.memberCount} members
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                            Archived
+                          </span>
+                          <Button variant="outline" size="sm">
+                            Restore
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </main>
+
+      {/* Success Modal */}
+      {successModal && (
+        <SuccessModal
+          isOpen={true}
+          onClose={() => setSuccessModal(null)}
+          title={successModal.title}
+          message={successModal.message}
+        />
+      )}
     </div>
   );
 }
