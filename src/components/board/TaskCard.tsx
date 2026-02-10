@@ -2,7 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task } from '@/types/task';
 import { useTaskStore } from '@/stores/taskStore';
-import { Calendar, User, GripVertical } from 'lucide-react';
+import { Calendar, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TaskCardProps {
@@ -24,7 +24,7 @@ function TaskCardBody({ task }: TaskCardProps) {
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed';
 
   return (
-    <div className="p-3 pl-6">
+    <div className="p-3">
       <h4 className="text-sm font-medium text-foreground leading-snug mb-2">{task.title}</h4>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -78,21 +78,15 @@ export function TaskCard({ task }: TaskCardProps) {
     <div
       ref={setNodeRef}
       style={style}
+      {...attributes}
+      {...listeners}
       className={cn(
-        'group relative bg-card rounded-md border border-border shadow-card cursor-pointer',
+        'group relative bg-card rounded-md border border-border shadow-card cursor-grab active:cursor-grabbing',
         'hover:shadow-card-hover hover:border-primary/30 transition-all duration-150',
         isDragging && 'opacity-50 shadow-lg rotate-2 scale-105'
       )}
       onClick={() => setSelectedTaskId(task.id)}
     >
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute left-0 top-0 bottom-0 w-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
-      >
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-      </div>
-
       <TaskCardBody task={task} />
     </div>
   );
@@ -110,9 +104,6 @@ export function TaskCardOverlay({ task }: TaskCardProps) {
         'hover:border-primary/30 transition-all duration-150'
       )}
     >
-      <div className="absolute left-0 top-0 bottom-0 w-6 flex items-center justify-center">
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-      </div>
       <TaskCardBody task={task} />
     </div>
   );

@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { BoardHeader } from '@/components/board/BoardHeader';
 import { BoardFilters } from '@/components/board/BoardFilters';
 import { KanbanBoard } from '@/components/board/KanbanBoard';
 import { CreateTaskModal } from '@/components/board/CreateTaskModal';
+import { BoardPresets } from '@/components/board/BoardPresets';
+import { BulkActions } from '@/components/board/BulkActions';
+import { RoleToggle } from '@/components/board/RoleToggle';
+import { ManagerDashboardWidgets, EmployeeDashboardWidgets } from '@/components/dashboard/DashboardWidgets';
 import { Button } from '@/components/ui/button';
 import { 
   Users, 
@@ -13,7 +16,8 @@ import {
   Eye,
   Pencil,
   Crown,
-  Hash
+  Hash,
+  BarChart3
 } from 'lucide-react';
 
 interface Collaborator {
@@ -63,7 +67,11 @@ export function WorkspacePage({
 }) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
   const [collaborators] = useState<Collaborator[]>(mockCollaborators);
+  const [roleView, setRoleView] = useState<'manager' | 'employee'>('manager');
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
 
   const roleColors: Record<string, string> = {
     owner: 'bg-status-completed/10 text-status-completed border-status-completed/20',
@@ -209,6 +217,19 @@ export function WorkspacePage({
           </div>
           
           <div className="flex items-center gap-2">
+            <RoleToggle currentView={roleView} onToggle={setRoleView} />
+            
+            <Button
+              variant={showDashboard ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setShowDashboard(!showDashboard)}
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Insights
+            </Button>
+
+            <BoardPresets activePreset={activePreset} onSelectPreset={setActivePreset} />
+
             <Button variant="ghost" size="sm" onClick={() => setShowCollaborators(true)}>
               <Users className="h-4 w-4 mr-2" />
               Team ({mockCollaborators.length})
@@ -220,6 +241,16 @@ export function WorkspacePage({
         </div>
       </header>
       
+      {/* Dashboard Widgets (collapsible) */}
+      {showDashboard && (
+        <div className="px-4 py-6 border-b border-border bg-muted/20 animate-fade-in">
+          {roleView === 'manager' ? <ManagerDashboardWidgets /> : <EmployeeDashboardWidgets />}
+        </div>
+      )}
+
+      {/* Bulk actions bar */}
+      <BulkActions selectedIds={selectedTaskIds} onClear={() => setSelectedTaskIds(new Set())} />
+
       <BoardFilters />
       <KanbanBoard />
       
