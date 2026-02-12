@@ -6,10 +6,12 @@ import {
   DragOverlay,
   DragStartEvent,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   closestCorners,
 } from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { COLUMNS, Task, TaskStatus } from '@/types/task';
 import { useTaskStore, filterTasks } from '@/stores/taskStore';
 import { KanbanColumn } from './KanbanColumn';
@@ -21,39 +23,32 @@ export function KanbanBoard() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [createStatus, setCreateStatus] = useState<TaskStatus>('backlog');
-  
+
   const allTasks = useTaskStore(state => state.tasks);
   const filters = useTaskStore(state => state.filters);
   const moveTask = useTaskStore(state => state.moveTask);
   const reorderTasks = useTaskStore(state => state.reorderTasks);
   const selectedTaskId = useTaskStore(state => state.selectedTaskId);
   const setSelectedTaskId = useTaskStore(state => state.setSelectedTaskId);
-  
+
   const filteredTasks = useMemo(() => filterTasks(allTasks, filters), [allTasks, filters]);
   const selectedTask = allTasks.find(t => t.id === selectedTaskId);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const task = allTasks.find(t => t.id === event.active.id);
-    if (task) {
-      setActiveTask(task);
-    }
+    if (task) setActiveTask(task);
   }, [allTasks]);
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) return;
-
     const activeId = active.id as string;
     const overId = over.id as string;
-
     const activeTaskItem = allTasks.find(t => t.id === activeId);
     if (!activeTaskItem) return;
 
@@ -61,8 +56,7 @@ export function KanbanBoard() {
     if (isOverColumn) {
       const newStatus = overId as TaskStatus;
       if (activeTaskItem.status !== newStatus) {
-        const tasksInColumn = allTasks.filter(t => t.status === newStatus);
-        moveTask(activeId, newStatus, tasksInColumn.length);
+        moveTask(activeId, newStatus, allTasks.filter(t => t.status === newStatus).length);
       }
       return;
     }
@@ -76,17 +70,12 @@ export function KanbanBoard() {
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
-
     if (!over) return;
-
     const activeId = active.id as string;
     const overId = over.id as string;
-
     if (activeId === overId) return;
-
     const activeTaskItem = allTasks.find(t => t.id === activeId);
     const overTask = allTasks.find(t => t.id === overId);
-
     if (activeTaskItem && overTask && activeTaskItem.status === overTask.status) {
       reorderTasks(activeTaskItem.status, activeId, overId);
     }

@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useTaskStore } from '@/stores/taskStore';
+import { useUiStore } from '@/stores/uiStore';
 import { BoardFilters } from '@/components/board/BoardFilters';
 import { KanbanBoard } from '@/components/board/KanbanBoard';
 import { CreateTaskModal } from '@/components/board/CreateTaskModal';
 import { BoardPresets } from '@/components/board/BoardPresets';
 import { BulkActions } from '@/components/board/BulkActions';
-import { RoleToggle } from '@/components/board/RoleToggle';
 import { ManagerDashboardWidgets, EmployeeDashboardWidgets } from '@/components/dashboard/DashboardWidgets';
+import { WithRole } from '@/components/guards/withRole';
 import { Button } from '@/components/ui/button';
-import { 
-  Users, 
-  ArrowLeft, 
+import {
+  Users,
   Settings,
   UserPlus,
   Shield,
@@ -17,165 +20,128 @@ import {
   Pencil,
   Crown,
   Hash,
-  BarChart3
+  BarChart3,
+  ArrowLeft,
 } from 'lucide-react';
 
-interface Collaborator {
-  id: string;
-  name: string;
-  email: string;
-  role: 'owner' | 'admin' | 'member' | 'viewer';
-  avatarInitial: string;
-}
-
-interface Workspace {
-  id: string;
-  name: string;
-  code: string;
-  role: 'owner' | 'admin' | 'member' | 'viewer';
-  memberCount: number;
-}
-
-// Mock collaborators
-const mockCollaborators: Collaborator[] = [
-  { id: '1', name: 'You', email: 'demo@taskboard.io', role: 'owner', avatarInitial: 'Y' },
-  { id: '2', name: 'Alex Chen', email: 'alex@company.com', role: 'admin', avatarInitial: 'A' },
-  { id: '3', name: 'Sarah Miller', email: 'sarah@company.com', role: 'member', avatarInitial: 'S' },
-  { id: '4', name: 'John Doe', email: 'john@company.com', role: 'viewer', avatarInitial: 'J' },
-];
-
-const roleIcons: Record<string, typeof Crown> = {
-  owner: Crown,
-  admin: Shield,
-  member: Pencil,
-  viewer: Eye
-};
-
+const roleIcons: Record<string, typeof Crown> = { owner: Crown, manager: Shield, contributor: Pencil, viewer: Eye };
 const roleDescriptions: Record<string, string> = {
   owner: 'Full access, can delete workspace',
-  admin: 'Can manage tasks and members',
-  member: 'Can create and edit tasks',
-  viewer: 'Read-only access'
+  manager: 'Can manage tasks, columns, and members',
+  contributor: 'Can create and edit tasks',
+  viewer: 'Read-only access',
 };
 
-export function WorkspacePage({ 
-  workspace, 
-  onBack 
-}: { 
-  workspace: Workspace; 
-  onBack: () => void;
-}) {
+export function WorkspacePage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { workspaces, currentWorkspace, setCurrentWorkspace, members, activePreset, setActivePreset } = useWorkspaceStore();
+  const { selection, clearSelection } = useTaskStore();
+  const { rolePreviewToggle } = useUiStore();
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
-  const [collaborators] = useState<Collaborator[]>(mockCollaborators);
-  const [roleView, setRoleView] = useState<'manager' | 'employee'>('manager');
-  const [activePreset, setActivePreset] = useState<string | null>(null);
-  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+
+  // Sync workspace from URL
+  useEffect(() => {
+    if (id && (!currentWorkspace || currentWorkspace.id !== id)) {
+      const ws = workspaces.find((w) => w.id === id);
+      if (ws) setCurrentWorkspace(ws);
+    }
+  }, [id, currentWorkspace, workspaces, setCurrentWorkspace]);
+
+  const workspace = currentWorkspace;
 
   const roleColors: Record<string, string> = {
     owner: 'bg-status-completed/10 text-status-completed border-status-completed/20',
-    admin: 'bg-status-progress/10 text-status-progress border-status-progress/20',
-    member: 'bg-status-ready/10 text-status-ready border-status-ready/20',
-    viewer: 'bg-muted text-muted-foreground border-border'
+    manager: 'bg-status-progress/10 text-status-progress border-status-progress/20',
+    contributor: 'bg-status-ready/10 text-status-ready border-status-ready/20',
+    viewer: 'bg-muted text-muted-foreground border-border',
   };
+
+  if (!workspace) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-muted-foreground">Workspace not found.</p>
+      </div>
+    );
+  }
 
   if (showCollaborators) {
     return (
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b border-border bg-card sticky top-0 z-40">
-          <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={() => setShowCollaborators(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Board
-              </button>
+      <div className="flex-1">
+        <div className="border-b border-border bg-card px-6 py-3">
+          <button onClick={() => setShowCollaborators(false)} className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2 text-sm">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Board
+          </button>
+        </div>
+
+        <div className="max-w-3xl mx-auto px-6 py-10">
+          <h1 className="text-2xl font-bold text-foreground mb-2 flex items-center gap-3">
+            <Users className="h-6 w-6" />
+            Team Members
+          </h1>
+          <p className="text-muted-foreground mb-8">
+            Manage collaborators for <span className="font-medium text-foreground">{workspace.name}</span>
+          </p>
+
+          {/* Invite Code */}
+          <div className="p-4 rounded-xl border border-border bg-card mb-8 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Invite Code</p>
+              <p className="text-lg font-mono font-semibold text-foreground flex items-center gap-2">
+                <Hash className="h-4 w-4 text-muted-foreground" />
+                {workspace.code}
+              </p>
             </div>
-          </div>
-        </header>
-
-        <main className="container mx-auto px-6 py-10 max-w-3xl">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
-              <Users className="h-8 w-8" />
-              Team Members
-            </h1>
-            <p className="text-muted-foreground">
-              Manage collaborators for <span className="font-medium text-foreground">{workspace.name}</span>
-            </p>
+            <Button variant="outline" size="sm">Copy Code</Button>
           </div>
 
-          {/* Workspace Code */}
-          <div className="p-4 rounded-xl border border-border bg-card mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Invite Code</p>
-                <p className="text-lg font-mono font-semibold text-foreground flex items-center gap-2">
-                  <Hash className="h-4 w-4 text-muted-foreground" />
-                  {workspace.code}
-                </p>
-              </div>
-              <Button variant="outline" size="sm">
-                Copy Code
-              </Button>
-            </div>
-          </div>
+          <WithRole action="manage_members">
+            <Button className="mb-6"><UserPlus className="h-4 w-4 mr-2" />Invite Member</Button>
+          </WithRole>
 
-          {/* Add Member */}
-          {(workspace.role === 'owner' || workspace.role === 'admin') && (
-            <Button className="mb-6">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Invite Member
-            </Button>
-          )}
-
-          {/* Members List */}
           <div className="space-y-3">
-            {collaborators.map((collab) => {
-              const RoleIcon = roleIcons[collab.role];
+            {members.map((member) => {
+              const RoleIcon = roleIcons[member.role] || Eye;
               return (
-                <div 
-                  key={collab.id}
-                  className="p-4 rounded-xl border border-border bg-card flex items-center justify-between"
-                >
+                <div key={member.id} className="p-4 rounded-xl border border-border bg-card flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
-                      {collab.avatarInitial}
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+                      {member.avatarInitial}
                     </div>
                     <div>
                       <h3 className="font-medium text-foreground">
-                        {collab.name}
-                        {collab.id === '1' && <span className="text-muted-foreground ml-2">(You)</span>}
+                        {member.name}
+                        {member.id === '1' && <span className="text-muted-foreground ml-2">(You)</span>}
                       </h3>
-                      <p className="text-sm text-muted-foreground">{collab.email}</p>
+                      <p className="text-sm text-muted-foreground">{member.email}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className={`px-3 py-1.5 rounded-lg border text-sm font-medium capitalize flex items-center gap-2 ${roleColors[collab.role]}`}>
+                    <div className={`px-3 py-1.5 rounded-lg border text-sm font-medium capitalize flex items-center gap-2 ${roleColors[member.role]}`}>
                       <RoleIcon className="h-3.5 w-3.5" />
-                      {collab.role}
+                      {member.role}
                     </div>
-                    {(workspace.role === 'owner' || workspace.role === 'admin') && collab.id !== '1' && (
-                      <Button variant="ghost" size="sm">
-                        <Settings className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <WithRole action="manage_members">
+                      {member.id !== '1' && (
+                        <Button variant="ghost" size="sm"><Settings className="h-4 w-4" /></Button>
+                      )}
+                    </WithRole>
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* Role Descriptions */}
+          {/* Role Permissions */}
           <div className="mt-10 p-6 rounded-xl bg-muted/30 border border-border">
             <h3 className="font-semibold text-foreground mb-4">Role Permissions</h3>
             <div className="grid gap-3">
               {Object.entries(roleDescriptions).map(([role, desc]) => {
-                const RoleIcon = roleIcons[role];
+                const RoleIcon = roleIcons[role] || Eye;
                 return (
                   <div key={role} className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${roleColors[role]}`}>
@@ -190,70 +156,57 @@ export function WorkspacePage({
               })}
             </div>
           </div>
-        </main>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      {/* Custom Header with back button */}
-      <header className="border-b border-border bg-card sticky top-0 z-40">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={onBack}
-              className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">{workspace.name}</h1>
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Hash className="h-3 w-3" />
-                {workspace.code}
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <RoleToggle currentView={roleView} onToggle={setRoleView} />
-            
-            <Button
-              variant={showDashboard ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setShowDashboard(!showDashboard)}
-            >
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Insights
-            </Button>
-
-            <BoardPresets activePreset={activePreset} onSelectPreset={setActivePreset} />
-
-            <Button variant="ghost" size="sm" onClick={() => setShowCollaborators(true)}>
-              <Users className="h-4 w-4 mr-2" />
-              Team ({mockCollaborators.length})
-            </Button>
-            <Button onClick={() => setIsCreateModalOpen(true)}>
-              New Task
-            </Button>
-          </div>
+    <div className="flex-1 flex flex-col">
+      {/* Board sub-header */}
+      <div className="border-b border-border bg-card px-4 py-2 flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-foreground">{workspace.name}</h2>
+          <span className="text-xs text-muted-foreground font-mono">#{workspace.code}</span>
         </div>
-      </header>
-      
-      {/* Dashboard Widgets (collapsible) */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showDashboard ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setShowDashboard(!showDashboard)}
+          >
+            <BarChart3 className="h-4 w-4 mr-1.5" />
+            Insights
+          </Button>
+
+          <WithRole action="apply_preset" disableOnly>
+            <BoardPresets activePreset={activePreset} onSelectPreset={setActivePreset} />
+          </WithRole>
+
+          <Button variant="ghost" size="sm" onClick={() => setShowCollaborators(true)}>
+            <Users className="h-4 w-4 mr-1.5" />
+            Team ({members.length})
+          </Button>
+
+          <WithRole action="create_task">
+            <Button size="sm" onClick={() => setIsCreateModalOpen(true)}>New Task</Button>
+          </WithRole>
+        </div>
+      </div>
+
+      {/* Dashboard Widgets */}
       {showDashboard && (
         <div className="px-4 py-6 border-b border-border bg-muted/20 animate-fade-in">
-          {roleView === 'manager' ? <ManagerDashboardWidgets /> : <EmployeeDashboardWidgets />}
+          {rolePreviewToggle === 'manager' ? <ManagerDashboardWidgets /> : <EmployeeDashboardWidgets />}
         </div>
       )}
 
-      {/* Bulk actions bar */}
-      <BulkActions selectedIds={selectedTaskIds} onClear={() => setSelectedTaskIds(new Set())} />
+      {/* Bulk actions */}
+      <BulkActions selectedIds={selection} onClear={clearSelection} />
 
       <BoardFilters />
       <KanbanBoard />
-      
+
       <CreateTaskModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
