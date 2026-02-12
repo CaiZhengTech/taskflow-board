@@ -26,29 +26,16 @@ function TaskCardBody({ task }: TaskCardProps) {
   return (
     <div className="p-3">
       <h4 className="text-sm font-medium text-foreground leading-snug mb-2">{task.title}</h4>
-
       <div className="flex items-center gap-2 flex-wrap">
-        <span
-          className={cn(
-            'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide border',
-            priorityColors[task.priority]
-          )}
-        >
+        <span className={cn('inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide border', priorityColors[task.priority])}>
           {task.priority}
         </span>
-
         {task.due_date && (
-          <span
-            className={cn(
-              'inline-flex items-center gap-1 text-[11px]',
-              isOverdue ? 'text-destructive' : 'text-muted-foreground'
-            )}
-          >
+          <span className={cn('inline-flex items-center gap-1 text-[11px]', isOverdue ? 'text-destructive' : 'text-muted-foreground')}>
             <Calendar className="h-3 w-3" />
             {formatDate(task.due_date)}
           </span>
         )}
-
         {task.assignee && (
           <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground ml-auto">
             <div className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center">
@@ -61,17 +48,24 @@ function TaskCardBody({ task }: TaskCardProps) {
   );
 }
 
-/**
- * Sortable card used inside columns.
- */
 export function TaskCard({ task }: TaskCardProps) {
   const setSelectedTaskId = useTaskStore((state) => state.setSelectedTaskId);
+  const toggleSelection = useTaskStore((state) => state.toggleSelection);
+  const selection = useTaskStore((state) => state.selection);
+  const isSelected = selection.has(task.id);
+  const hasSelection = selection.size > 0;
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey) {
+      e.preventDefault();
+      toggleSelection(task.id);
+    } else {
+      setSelectedTaskId(task.id);
+    }
   };
 
   return (
@@ -81,29 +75,35 @@ export function TaskCard({ task }: TaskCardProps) {
       {...attributes}
       {...listeners}
       className={cn(
-        'group relative bg-card rounded-md border border-border shadow-card cursor-grab active:cursor-grabbing',
+        'group relative bg-card rounded-md border shadow-card cursor-grab active:cursor-grabbing',
         'hover:shadow-card-hover hover:border-primary/30 transition-all duration-150',
-        isDragging && 'opacity-50 shadow-lg rotate-2 scale-105'
+        isDragging && 'opacity-50 shadow-lg rotate-2 scale-105',
+        isSelected ? 'border-primary ring-2 ring-primary/30' : 'border-border',
       )}
-      onClick={() => setSelectedTaskId(task.id)}
+      onClick={handleClick}
+      role="button"
+      aria-roledescription="sortable task"
+      aria-label={task.title}
     >
+      {/* Selection checkbox */}
+      {(hasSelection || isSelected) && (
+        <div className="absolute top-2 right-2 z-10">
+          <div className={cn(
+            'w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
+            isSelected ? 'bg-primary border-primary' : 'border-border bg-card',
+          )}>
+            {isSelected && <span className="text-primary-foreground text-[10px] font-bold">✓</span>}
+          </div>
+        </div>
+      )}
       <TaskCardBody task={task} />
     </div>
   );
 }
 
-/**
- * Non-sortable visual used for DragOverlay.
- * IMPORTANT: DragOverlay should not render a sortable item (avoids measure loop / max depth).
- */
 export function TaskCardOverlay({ task }: TaskCardProps) {
   return (
-    <div
-      className={cn(
-        'relative bg-card rounded-md border border-border shadow-lg',
-        'hover:border-primary/30 transition-all duration-150'
-      )}
-    >
+    <div className={cn('relative bg-card rounded-md border border-border shadow-lg', 'hover:border-primary/30 transition-all duration-150')}>
       <TaskCardBody task={task} />
     </div>
   );
