@@ -40,21 +40,23 @@ export function AppShell() {
   return (
     <div className="min-h-svh flex flex-col bg-background">
       <header className="border-b border-border bg-card sticky top-0 z-40">
-        <div className="flex items-center justify-between px-4 md:px-6 py-3">
+        <div className="flex items-center justify-between px-3 sm:px-4 md:px-6 py-2 sm:py-3 gap-2">
           {/* Left: Logo + workspace switcher */}
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/app/dashboard')} className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <LayoutDashboard className="h-4 w-4 text-primary-foreground" />
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
+            <button onClick={() => navigate('/app/dashboard')} className="flex items-center gap-2 shrink-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary flex items-center justify-center">
+                <LayoutDashboard className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary-foreground" />
               </div>
-              <span className="text-lg font-bold text-foreground hidden sm:inline">TaskBoard</span>
+              <span className="text-lg font-bold text-foreground hidden md:inline">TaskBoard</span>
             </button>
 
             {/* Workspace switcher */}
             <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors text-sm font-medium text-foreground">
-                {currentWorkspace?.name || 'Select Workspace'}
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <DropdownMenuTrigger className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors text-sm font-medium text-foreground min-w-0">
+                <span className="truncate max-w-[100px] sm:max-w-[160px] md:max-w-[200px]">
+                  {currentWorkspace?.name || 'Select Workspace'}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
                 <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
@@ -78,7 +80,7 @@ export function AppShell() {
           </div>
 
           {/* Center: search placeholder */}
-          <div className="hidden md:flex flex-1 max-w-sm mx-6">
+          <div className="hidden lg:flex flex-1 max-w-sm mx-4">
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search..." className="pl-9 h-8 bg-muted/50" />
@@ -86,9 +88,11 @@ export function AppShell() {
           </div>
 
           {/* Right: role toggle, activities, user */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {isOnBoard && (
-              <RoleToggle currentView={rolePreviewToggle} onToggle={setRolePreviewToggle} />
+              <div className="hidden sm:block">
+                <RoleToggle currentView={rolePreviewToggle} onToggle={setRolePreviewToggle} />
+              </div>
             )}
             <ActivitiesDropdown />
             <UserDropdown onNavigate={handleSettingsNavigate} />

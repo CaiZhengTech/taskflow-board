@@ -1,6 +1,7 @@
 import { TaskStatus, TaskPriority, getColumnColorStyle } from '@/types/task';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useTaskStore } from '@/stores/taskStore';
+import { useHasPermission } from '@/components/guards/withRole';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -21,6 +22,8 @@ interface BulkActionsProps {
 export function BulkActions({ selectedIds, onClear }: BulkActionsProps) {
   const { moveTask, updateTask, deleteTask, tasks } = useTaskStore();
   const columns = useWorkspaceStore(state => state.columns);
+  const canMove = useHasPermission('move_task');
+  const canDelete = useHasPermission('delete_task');
 
   if (selectedIds.size === 0) return null;
 
@@ -70,12 +73,12 @@ export function BulkActions({ selectedIds, onClear }: BulkActionsProps) {
   };
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2 bg-primary/5 border-b border-primary/20 animate-fade-in">
-      <span className="text-sm font-medium text-primary">{selectedIds.size} selected</span>
+    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-primary/5 border-b border-primary/20 animate-fade-in">
+      <span className="text-sm font-medium text-primary shrink-0">{selectedIds.size} selected</span>
 
-      <div className="flex items-center gap-2 ml-auto">
-        <Select onValueChange={(v) => handleBulkMove(v as TaskStatus)}>
-          <SelectTrigger className="h-8 w-[140px]">
+      <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
+        <Select onValueChange={(v) => handleBulkMove(v as TaskStatus)} disabled={!canMove}>
+          <SelectTrigger className="h-8 w-[140px]" disabled={!canMove}>
             <div className="flex items-center gap-1.5">
               <ArrowRight className="h-3.5 w-3.5" />
               <SelectValue placeholder="Move to..." />
@@ -107,7 +110,7 @@ export function BulkActions({ selectedIds, onClear }: BulkActionsProps) {
           </SelectContent>
         </Select>
 
-        <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+        <Button variant="destructive" size="sm" onClick={handleBulkDelete} disabled={!canDelete}>
           <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
         </Button>
 
