@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { TaskStatus, TaskPriority, COLUMNS } from '@/types/task';
+import { TaskStatus, TaskPriority, getColumnColorStyle } from '@/types/task';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useTaskStore } from '@/stores/taskStore';
 import {
   Dialog,
@@ -28,6 +29,7 @@ interface CreateTaskModalProps {
 
 export function CreateTaskModal({ isOpen, onClose, defaultStatus }: CreateTaskModalProps) {
   const addTask = useTaskStore(state => state.addTask);
+  const columns = useWorkspaceStore(state => state.columns);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>(defaultStatus);
@@ -111,14 +113,17 @@ export function CreateTaskModal({ isOpen, onClose, defaultStatus }: CreateTaskMo
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {COLUMNS.map(col => (
-                    <SelectItem key={col.id} value={col.id}>
-                      <div className="flex items-center gap-2">
-                        <div className={cn('w-2 h-2 rounded-full', `bg-${col.color}`)} />
-                        {col.title}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {columns.map(col => {
+                    const cs = getColumnColorStyle(col.color);
+                    return (
+                      <SelectItem key={col.id} value={col.id}>
+                        <div className="flex items-center gap-2">
+                          <div className={cn('w-2 h-2 rounded-full', cs.dot)} />
+                          {col.title}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

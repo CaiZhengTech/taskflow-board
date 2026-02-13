@@ -164,12 +164,12 @@ export function WorkspacePage() {
   return (
     <div className="flex-1 flex flex-col">
       {/* Board sub-header */}
-      <div className="border-b border-border bg-card px-4 py-2 flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold text-foreground">{workspace.name}</h2>
-          <span className="text-xs text-muted-foreground font-mono">#{workspace.code}</span>
+      <div className="border-b border-border bg-card px-4 py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <h2 className="text-lg font-semibold text-foreground truncate">{workspace.name}</h2>
+          <span className="text-xs text-muted-foreground font-mono shrink-0">#{workspace.code}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant={showDashboard ? 'secondary' : 'ghost'}
             size="sm"

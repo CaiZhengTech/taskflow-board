@@ -12,8 +12,9 @@ import {
   closestCorners,
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { COLUMNS, Task, TaskStatus } from '@/types/task';
+import { Task, TaskStatus, getColumnColorStyle } from '@/types/task';
 import { useTaskStore, filterTasks } from '@/stores/taskStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { KanbanColumn } from './KanbanColumn';
 import { TaskCardOverlay } from './TaskCard';
 import { CreateTaskModal } from './CreateTaskModal';
@@ -30,6 +31,8 @@ export function KanbanBoard() {
   const reorderTasks = useTaskStore(state => state.reorderTasks);
   const selectedTaskId = useTaskStore(state => state.selectedTaskId);
   const setSelectedTaskId = useTaskStore(state => state.setSelectedTaskId);
+  const columns = useWorkspaceStore(state => state.columns);
+  const columnIds = useMemo(() => new Set(columns.map(c => c.id)), [columns]);
 
   const filteredTasks = useMemo(() => filterTasks(allTasks, filters), [allTasks, filters]);
   const selectedTask = allTasks.find(t => t.id === selectedTaskId);
@@ -52,7 +55,7 @@ export function KanbanBoard() {
     const activeTaskItem = allTasks.find(t => t.id === activeId);
     if (!activeTaskItem) return;
 
-    const isOverColumn = COLUMNS.some(col => col.id === overId);
+    const isOverColumn = columnIds.has(overId);
     if (isOverColumn) {
       const newStatus = overId as TaskStatus;
       if (activeTaskItem.status !== newStatus) {
@@ -87,7 +90,7 @@ export function KanbanBoard() {
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden min-h-0">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -96,12 +99,12 @@ export function KanbanBoard() {
         onDragEnd={handleDragEnd}
       >
         <div className="flex-1 flex gap-4 p-4 overflow-x-auto scrollbar-thin">
-          {COLUMNS.map(column => (
+          {columns.map(column => (
             <KanbanColumn
               key={column.id}
               id={column.id}
               title={column.title}
-              colorClass={column.color}
+              colorToken={column.color}
               onAddTask={handleAddTask}
             />
           ))}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Task, TaskStatus, TaskPriority, COLUMNS } from '@/types/task';
+import { Task, TaskStatus, TaskPriority, getColumnColorStyle } from '@/types/task';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { X, Calendar, Trash2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ interface TaskDetailPanelProps {
 
 export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const { updateTask, deleteTask } = useTaskStore();
+  const columns = useWorkspaceStore(state => state.columns);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -109,14 +111,17 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {COLUMNS.map(col => (
-                    <SelectItem key={col.id} value={col.id}>
-                      <div className="flex items-center gap-2">
-                        <div className={cn('w-2 h-2 rounded-full', `bg-${col.color}`)} />
-                        {col.title}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {columns.map(col => {
+                    const cs = getColumnColorStyle(col.color);
+                    return (
+                      <SelectItem key={col.id} value={col.id}>
+                        <div className="flex items-center gap-2">
+                          <div className={cn('w-2 h-2 rounded-full', cs.dot)} />
+                          {col.title}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
