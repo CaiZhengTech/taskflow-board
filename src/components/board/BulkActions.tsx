@@ -1,4 +1,5 @@
-import { TaskStatus, TaskPriority, COLUMNS } from '@/types/task';
+import { TaskStatus, TaskPriority, getColumnColorStyle } from '@/types/task';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,6 +20,7 @@ interface BulkActionsProps {
 
 export function BulkActions({ selectedIds, onClear }: BulkActionsProps) {
   const { moveTask, updateTask, deleteTask, tasks } = useTaskStore();
+  const columns = useWorkspaceStore(state => state.columns);
 
   if (selectedIds.size === 0) return null;
 
@@ -80,14 +82,17 @@ export function BulkActions({ selectedIds, onClear }: BulkActionsProps) {
             </div>
           </SelectTrigger>
           <SelectContent>
-            {COLUMNS.map((col) => (
-              <SelectItem key={col.id} value={col.id}>
-                <div className="flex items-center gap-2">
-                  <div className={cn('w-2 h-2 rounded-full', `bg-${col.color}`)} />
-                  {col.title}
-                </div>
-              </SelectItem>
-            ))}
+            {columns.map((col) => {
+              const cs = getColumnColorStyle(col.color);
+              return (
+                <SelectItem key={col.id} value={col.id}>
+                  <div className="flex items-center gap-2">
+                    <div className={cn('w-2 h-2 rounded-full', cs.dot)} />
+                    {col.title}
+                  </div>
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
 

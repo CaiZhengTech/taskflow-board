@@ -18,20 +18,14 @@ import {
 
 export function LandingPage() {
   const navigate = useNavigate();
-  const { setIsAuthenticated, setUser } = useAuthStore();
+  const { login, setIsAuthenticated, setUser } = useAuthStore();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
 
   const handleDemoLogin = () => {
-    setUser({
-      id: 'demo-user',
-      username: 'demo',
-      email: 'demo@taskboard.io',
-      name: 'Demo User',
-    });
-    setIsAuthenticated(true);
+    login('demo', 'demo123');
     navigate('/app/dashboard');
   };
 

@@ -1,4 +1,4 @@
-export type TaskStatus = 'backlog' | 'ready' | 'in_progress' | 'completed';
+export type TaskStatus = string;
 export type TaskPriority = 'low' | 'medium' | 'high';
 
 export interface User {
@@ -31,14 +31,33 @@ export interface Project {
 }
 
 export interface Column {
-  id: TaskStatus;
+  id: string;
   title: string;
   color: string;
 }
 
-export const COLUMNS: Column[] = [
+/** Default columns — used as fallback; dynamic columns come from workspaceStore */
+export const DEFAULT_COLUMNS: Column[] = [
   { id: 'backlog', title: 'Backlog', color: 'status-backlog' },
   { id: 'ready', title: 'Ready', color: 'status-ready' },
   { id: 'in_progress', title: 'In Progress', color: 'status-progress' },
   { id: 'completed', title: 'Completed', color: 'status-completed' },
 ];
+
+/**
+ * Static color style map for Tailwind JIT compatibility.
+ * Maps a color token (e.g. "status-backlog") to its dot, bg, and ring classes.
+ * All class names are written statically so Tailwind can detect them at build time.
+ */
+export const COLUMN_COLOR_STYLES: Record<string, { dot: string; bg: string; ring: string }> = {
+  'status-backlog':    { dot: 'bg-status-backlog',    bg: 'bg-status-backlog/5 border-status-backlog/20',    ring: 'ring-status-backlog/30' },
+  'status-ready':      { dot: 'bg-status-ready',      bg: 'bg-status-ready/5 border-status-ready/20',        ring: 'ring-status-ready/30' },
+  'status-progress':   { dot: 'bg-status-progress',   bg: 'bg-status-progress/5 border-status-progress/20',  ring: 'ring-status-progress/30' },
+  'status-completed':  { dot: 'bg-status-completed',  bg: 'bg-status-completed/5 border-status-completed/20', ring: 'ring-status-completed/30' },
+};
+
+const DEFAULT_COLOR_STYLE = { dot: 'bg-muted-foreground', bg: 'bg-muted/5 border-border', ring: 'ring-primary/30' };
+
+export function getColumnColorStyle(color: string) {
+  return COLUMN_COLOR_STYLES[color] ?? DEFAULT_COLOR_STYLE;
+}

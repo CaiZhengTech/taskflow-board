@@ -6,7 +6,9 @@ import { DashboardPage } from './pages/DashboardPage';
 import { WorkspacePage } from './pages/WorkspacePage';
 import { UserSettingsPage } from './pages/UserSettingsPage';
 import { ArchivedPage } from './pages/ArchivedPage';
+import NotFound from './pages/NotFound';
 import { Toaster } from '@/components/ui/toaster';
+import { Toaster as SonnerToaster } from '@/components/ui/sonner';
 
 const App = () => {
   return (
@@ -25,9 +27,10 @@ const App = () => {
         </Route>
 
         {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster />
+      <SonnerToaster />
     </BrowserRouter>
   );
 };

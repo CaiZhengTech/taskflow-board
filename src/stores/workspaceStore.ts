@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { DEFAULT_COLUMNS, type Column } from '@/types/task';
 
 export type WorkspaceRole = 'owner' | 'manager' | 'contributor' | 'viewer';
 
@@ -35,18 +36,9 @@ export const BOARD_PRESETS: BoardPreset[] = [
   { id: 'kanban', name: 'Simple Kanban', description: 'Classic three-column Kanban board', columns: ['To Do', 'Doing', 'Done'], labels: ['Urgent', 'Normal', 'Low'], colorScheme: 'neutral' },
 ];
 
-export interface WorkspaceColumn {
-  id: string;
-  title: string;
-  color: string;
-}
+export type WorkspaceColumn = Column;
 
-const DEFAULT_COLUMNS: WorkspaceColumn[] = [
-  { id: 'backlog', title: 'Backlog', color: 'status-backlog' },
-  { id: 'ready', title: 'Ready', color: 'status-ready' },
-  { id: 'in_progress', title: 'In Progress', color: 'status-progress' },
-  { id: 'completed', title: 'Completed', color: 'status-completed' },
-];
+const DEFAULT_COLS = DEFAULT_COLUMNS;
 
 interface WorkspaceStore {
   workspaces: Workspace[];
@@ -86,9 +78,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   currentWorkspace: null,
   members: mockMembers,
   activePreset: null,
-  columns: DEFAULT_COLUMNS,
+  columns: DEFAULT_COLS,
 
-  setCurrentWorkspace: (workspace) => set({ currentWorkspace: workspace, columns: DEFAULT_COLUMNS }),
+  setCurrentWorkspace: (workspace) => set({ currentWorkspace: workspace, columns: DEFAULT_COLS }),
 
   addWorkspace: (name) => {
     const ws: Workspace = { id: Date.now().toString(), name, code: `WS-${Math.random().toString(36).substring(2, 6).toUpperCase()}`, role: 'owner', memberCount: 1 };
@@ -122,7 +114,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       }));
       set({ activePreset: presetId, columns: cols });
     } else {
-      set({ activePreset: null, columns: DEFAULT_COLUMNS });
+      set({ activePreset: null, columns: DEFAULT_COLS });
     }
   },
 
