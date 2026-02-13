@@ -1,9 +1,10 @@
 import { type ComponentType } from 'react';
 import { useWorkspaceStore, type WorkspaceRole } from '@/stores/workspaceStore';
+import { useUiStore } from '@/stores/uiStore';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Lock } from 'lucide-react';
 
-type RoleAction = 'create_task' | 'edit_task' | 'delete_task' | 'move_task' | 'manage_columns' | 'manage_members' | 'change_roles' | 'archive_workspace' | 'apply_preset';
+export type RoleAction = 'create_task' | 'edit_task' | 'delete_task' | 'move_task' | 'manage_columns' | 'manage_members' | 'change_roles' | 'archive_workspace' | 'apply_preset';
 
 const ROLE_PERMISSIONS: Record<WorkspaceRole, Set<RoleAction>> = {
   owner: new Set(['create_task', 'edit_task', 'delete_task', 'move_task', 'manage_columns', 'manage_members', 'change_roles', 'archive_workspace', 'apply_preset']),
@@ -16,9 +17,22 @@ export function hasPermission(role: WorkspaceRole, action: RoleAction): boolean 
   return ROLE_PERMISSIONS[role]?.has(action) ?? false;
 }
 
+/**
+ * Returns the effective role for the current user.
+ * When the role-preview toggle is set to 'employee', the effective role
+ * is downgraded to 'contributor' so managers/owners can preview the
+ * restricted experience. Otherwise the actual workspace role is used.
+ */
 export function useCurrentRole(): WorkspaceRole {
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
-  return currentWorkspace?.role ?? 'viewer';
+  const rolePreview = useUiStore((s) => s.rolePreviewToggle);
+  const actualRole = currentWorkspace?.role ?? 'viewer';
+
+  // When previewing as employee, cap the role to contributor
+  if (rolePreview === 'employee') {
+    return 'contributor';
+  }
+  return actualRole;
 }
 
 export function useHasPermission(action: RoleAction): boolean {

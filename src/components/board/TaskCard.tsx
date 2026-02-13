@@ -2,6 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task } from '@/types/task';
 import { useTaskStore } from '@/stores/taskStore';
+import { useHasPermission } from '@/components/guards/withRole';
 import { Calendar, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -55,38 +56,48 @@ export function TaskCard({ task }: TaskCardProps) {
   const isSelected = selection.has(task.id);
   const hasSelection = selection.size > 0;
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
+  const canMove = useHasPermission('move_task');
+  const canEdit = useHasPermission('edit_task');
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: task.id,
+    disabled: !canMove,
+  });
 
   const style = { transform: CSS.Transform.toString(transform), transition };
 
   const handleClick = (e: React.MouseEvent) => {
-    if (e.metaKey || e.ctrlKey) {
+    if ((e.metaKey || e.ctrlKey) && canEdit) {
       e.preventDefault();
       toggleSelection(task.id);
     } else {
+      // Always allow opening the detail panel (view); read-only gating is done there
       setSelectedTaskId(task.id);
     }
   };
+
+  // Only spread drag listeners when the user has move permission
+  const dragProps = canMove ? { ...attributes, ...listeners } : {};
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
+      {...dragProps}
       className={cn(
-        'group relative bg-card rounded-md border shadow-card cursor-grab active:cursor-grabbing',
-        'hover:shadow-card-hover hover:border-primary/30 transition-all duration-150',
+        'group relative bg-card rounded-md border shadow-card transition-all duration-150',
+        canMove ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
+        'hover:shadow-card-hover hover:border-primary/30',
         isDragging && 'opacity-50 shadow-lg rotate-2 scale-105',
         isSelected ? 'border-primary ring-2 ring-primary/30' : 'border-border',
       )}
       onClick={handleClick}
       role="button"
-      aria-roledescription="sortable task"
+      aria-roledescription={canMove ? 'sortable task' : 'task'}
       aria-label={task.title}
     >
-      {/* Selection checkbox */}
-      {(hasSelection || isSelected) && (
+      {/* Selection checkbox – only show when edit permission exists */}
+      {canEdit && (hasSelection || isSelected) && (
         <div className="absolute top-2 right-2 z-10">
           <div className={cn(
             'w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',

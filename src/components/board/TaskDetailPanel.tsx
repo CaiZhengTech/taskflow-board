@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Task, TaskStatus, TaskPriority, getColumnColorStyle } from '@/types/task';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useTaskStore } from '@/stores/taskStore';
-import { X, Calendar, Trash2, User } from 'lucide-react';
+import { useHasPermission } from '@/components/guards/withRole';
+import { X, Calendar, Trash2, User, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,6 +28,9 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+
+  const canEdit = useHasPermission('edit_task');
+  const canDelete = useHasPermission('delete_task');
 
   const handleTitleBlur = () => {
     setIsEditingTitle(false);
@@ -80,7 +84,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
         <div className="p-4 space-y-6">
           {/* Title */}
           <div>
-            {isEditingTitle ? (
+            {isEditingTitle && canEdit ? (
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -91,8 +95,11 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               />
             ) : (
               <h2
-                className="text-lg font-semibold cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2"
-                onClick={() => setIsEditingTitle(true)}
+                className={cn(
+                  'text-lg font-semibold rounded px-2 py-1 -mx-2',
+                  canEdit && 'cursor-pointer hover:bg-muted/50',
+                )}
+                onClick={() => canEdit && setIsEditingTitle(true)}
               >
                 {task.title}
               </h2>
@@ -106,6 +113,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               <Select
                 value={task.status}
                 onValueChange={(value: TaskStatus) => updateTask(task.id, { status: value })}
+                disabled={!canEdit}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -131,6 +139,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               <Select
                 value={task.priority}
                 onValueChange={(value: TaskPriority) => updateTask(task.id, { priority: value })}
+                disabled={!canEdit}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -169,6 +178,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               type="date"
               value={task.due_date || ''}
               onChange={(e) => updateTask(task.id, { due_date: e.target.value || undefined })}
+              disabled={!canEdit}
             />
           </div>
 
@@ -199,10 +209,11 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               onBlur={handleDescriptionBlur}
-              placeholder="Add a description..."
+              placeholder={canEdit ? 'Add a description...' : 'No description'}
               className="min-h-[120px] resize-none"
+              disabled={!canEdit}
             />
-            <p className="text-[10px] text-muted-foreground">Markdown supported</p>
+            {canEdit && <p className="text-[10px] text-muted-foreground">Markdown supported</p>}
           </div>
 
           {/* Metadata */}
@@ -212,17 +223,24 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           </div>
 
           {/* Delete */}
-          <div className="pt-4">
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleDelete}
-              className="w-full"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Task
-            </Button>
-          </div>
+          {canDelete ? (
+            <div className="pt-4">
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDelete}
+                className="w-full"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Task
+              </Button>
+            </div>
+          ) : !canEdit ? (
+            <div className="pt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              <Lock className="h-3 w-3" />
+              View only — you don't have edit permissions
+            </div>
+          ) : null}
         </div>
       </div>
     </>

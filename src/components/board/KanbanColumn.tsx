@@ -3,6 +3,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { TaskStatus, getColumnColorStyle } from '@/types/task';
 import { useTaskStore, getTasksByStatus } from '@/stores/taskStore';
+import { useHasPermission } from '@/components/guards/withRole';
 import { TaskCard } from './TaskCard';
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ interface KanbanColumnProps {
 export function KanbanColumn({ id, title, colorToken, onAddTask }: KanbanColumnProps) {
   const allTasks = useTaskStore(state => state.tasks);
   const filters = useTaskStore(state => state.filters);
+  const canCreate = useHasPermission('create_task');
   
   const tasks = useMemo(() => 
     getTasksByStatus(allTasks, filters, id),
@@ -28,7 +30,7 @@ export function KanbanColumn({ id, title, colorToken, onAddTask }: KanbanColumnP
   const colorStyle = getColumnColorStyle(colorToken);
 
   return (
-    <div className="flex flex-col min-w-[280px] w-[280px] md:w-[300px] lg:flex-1 lg:min-w-0 lg:max-w-[360px]">
+    <div className="flex flex-col min-w-[270px] w-[270px] sm:min-w-[280px] sm:w-[280px] md:w-auto md:flex-1">
       <div className="flex items-center gap-2 px-3 py-2 mb-2">
         <div className={cn('w-3 h-3 rounded-full', colorStyle.dot)} />
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
@@ -57,13 +59,15 @@ export function KanbanColumn({ id, title, colorToken, onAddTask }: KanbanColumnP
           </div>
         )}
         
-        <button
-          onClick={() => onAddTask(id)}
-          className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-card/80 rounded-lg border border-dashed border-border/50 hover:border-border transition-all mt-auto"
-        >
-          <Plus className="h-4 w-4" />
-          Add task
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => onAddTask(id)}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-card/80 rounded-lg border border-dashed border-border/50 hover:border-border transition-all mt-auto"
+          >
+            <Plus className="h-4 w-4" />
+            Add task
+          </button>
+        )}
       </div>
     </div>
   );
