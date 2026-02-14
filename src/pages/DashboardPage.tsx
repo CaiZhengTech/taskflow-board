@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useInvitationStore } from '@/stores/invitationStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SuccessModal } from '@/components/ui/SuccessModal';
@@ -9,6 +10,16 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ManagerDashboardWidgets, EmployeeDashboardWidgets } from '@/components/dashboard/DashboardWidgets';
 import { RoleToggle } from '@/components/board/RoleToggle';
 import { useUiStore } from '@/stores/uiStore';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Plus,
   Users,
@@ -20,13 +31,33 @@ import {
   LayoutDashboard,
   RotateCcw,
   Trash2,
+  Mail,
+  MailOpen,
+  CheckCircle2,
+  XCircle,
+  Send,
+  MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+function formatTimeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export function DashboardPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const openInvitationsOnLoad = !!(location.state as any)?.openInvitations;
   const { user } = useAuthStore();
-  const { workspaces, archivedWorkspaces, addWorkspace, setCurrentWorkspace, restoreWorkspace, deleteArchivedWorkspace } = useWorkspaceStore();
+  const { workspaces, archivedWorkspaces, currentWorkspace, addWorkspace, setCurrentWorkspace, archiveWorkspace, deleteWorkspace, restoreWorkspace, deleteArchivedWorkspace } = useWorkspaceStore();
+  const { receivedInvitations, sentInvitations, acceptInvitation, declineInvitation, dismissInvitation } = useInvitationStore();
   const { rolePreviewToggle, setRolePreviewToggle } = useUiStore();
 
   const [joinCode, setJoinCode] = useState('');
@@ -35,14 +66,43 @@ export function DashboardPage() {
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
+  const [showInvitations, setShowInvitations] = useState(openInvitationsOnLoad);
+  const [invitationsTab, setInvitationsTab] = useState<'received' | 'sent'>('received');
   const [successModal, setSuccessModal] = useState<{ title: string; message: string } | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const wsToDelete = workspaces.find((w) => w.id === deleteConfirmId);
+
+  const pendingCount = receivedInvitations.filter(i => i.status === 'pending').length;
 
   const handleJoinWorkspace = () => {
     if (joinCode.trim()) {
-      setSuccessModal({ title: 'Joining Workspace', message: `Looking for workspace with code: ${joinCode}...` });
+      // Check if any received invitation has this code
+      const matchingInvite = receivedInvitations.find(
+        i => i.workspaceCode.toLowerCase() === joinCode.trim().toLowerCase() && i.status === 'pending'
+      );
+      if (matchingInvite) {
+        acceptInvitation(matchingInvite.id);
+        const ws = addWorkspace(matchingInvite.workspaceName, matchingInvite.role as any);
+        toast.success(`Joined "${matchingInvite.workspaceName}" as ${matchingInvite.role}!`);
+      } else {
+        setSuccessModal({ title: 'Joining Workspace', message: `Looking for workspace with code: ${joinCode}...` });
+      }
       setJoinCode('');
       setShowJoinInput(false);
     }
+  };
+
+  const handleAcceptInvite = (invId: string) => {
+    const inv = receivedInvitations.find(i => i.id === invId);
+    if (!inv) return;
+    acceptInvitation(invId);
+    const ws = addWorkspace(inv.workspaceName, inv.role as any);
+    toast.success(`Joined "${inv.workspaceName}" as ${inv.role}!`);
+  };
+
+  const handleDeclineInvite = (invId: string) => {
+    declineInvitation(invId);
+    toast('Invitation declined');
   };
 
   const handleCreateWorkspace = () => {
@@ -78,7 +138,9 @@ export function DashboardPage() {
             <p className="text-muted-foreground">Select a workspace or create a new one.</p>
           </div>
           <div className="flex items-center gap-2">
-            <RoleToggle currentView={rolePreviewToggle} onToggle={setRolePreviewToggle} />
+            {currentWorkspace?.role === 'owner' || currentWorkspace?.role === 'manager' || !currentWorkspace ? (
+              <RoleToggle currentView={rolePreviewToggle} onToggle={setRolePreviewToggle} />
+            ) : null}
             <Button
               variant={showInsights ? 'secondary' : 'outline'}
               size="sm"
@@ -93,7 +155,7 @@ export function DashboardPage() {
         {/* Insights widgets */}
         {showInsights && (
           <div className="mb-8 p-6 rounded-xl border border-border bg-card animate-fade-in">
-            {rolePreviewToggle === 'manager' ? <ManagerDashboardWidgets /> : <EmployeeDashboardWidgets />}
+            {(rolePreviewToggle === 'manager' && (!currentWorkspace || currentWorkspace.role === 'owner' || currentWorkspace.role === 'manager')) ? <ManagerDashboardWidgets /> : <EmployeeDashboardWidgets />}
           </div>
         )}
 
@@ -107,7 +169,155 @@ export function DashboardPage() {
             <Hash className="h-4 w-4 mr-2" />
             Join with Code
           </Button>
+          <Button
+            variant={showInvitations ? 'secondary' : 'outline'}
+            onClick={() => setShowInvitations(!showInvitations)}
+            className="relative"
+          >
+            <Mail className="h-4 w-4 mr-2" />
+            Invitations
+            {pendingCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+                {pendingCount}
+              </span>
+            )}
+          </Button>
         </div>
+
+        {/* ── Invitations panel ─────────────────────────────────────────── */}
+        {showInvitations && (
+          <div className="mb-8 rounded-xl border border-border bg-card animate-scale-in overflow-hidden">
+            {/* Tabs */}
+            <div className="flex border-b border-border">
+              <button
+                onClick={() => setInvitationsTab('received')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${invitationsTab === 'received' ? 'bg-muted text-foreground border-b-2 border-primary' : 'text-muted-foreground hover:bg-muted/50'}`}
+              >
+                <MailOpen className="h-4 w-4" />
+                Received
+                {pendingCount > 0 && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{pendingCount}</span>
+                )}
+              </button>
+              <button
+                onClick={() => setInvitationsTab('sent')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${invitationsTab === 'sent' ? 'bg-muted text-foreground border-b-2 border-primary' : 'text-muted-foreground hover:bg-muted/50'}`}
+              >
+                <Send className="h-4 w-4" />
+                Sent ({sentInvitations.length})
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 max-h-[400px] overflow-y-auto scrollbar-thin">
+              {invitationsTab === 'received' && (
+                receivedInvitations.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MailOpen className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">No invitations yet</p>
+                  </div>
+                ) : (
+                  receivedInvitations.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className={`p-4 rounded-xl border transition-all ${inv.status === 'pending' ? 'border-primary/30 bg-primary/5' : inv.status === 'accepted' ? 'border-status-completed/30 bg-status-completed/5' : 'border-border bg-muted/30'}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+                          {inv.invitedByAvatar}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-foreground text-sm">{inv.invitedBy}</span>
+                            <span className="text-xs text-muted-foreground">invited you to</span>
+                            <span className="font-semibold text-foreground text-sm">{inv.workspaceName}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${roleColors[inv.role] || 'bg-muted text-muted-foreground'}`}>
+                              {inv.role}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              #{inv.workspaceCode}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              · {formatTimeAgo(inv.createdAt)}
+                            </span>
+                          </div>
+                          {inv.message && (
+                            <div className="mt-2 p-2.5 rounded-lg bg-muted/50 border border-border/50">
+                              <div className="flex items-start gap-1.5">
+                                <MessageSquare className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
+                                <p className="text-xs text-muted-foreground italic leading-relaxed">{inv.message}</p>
+                              </div>
+                            </div>
+                          )}
+                          {inv.status === 'pending' && (
+                            <div className="flex items-center gap-2 mt-3">
+                              <Button size="sm" className="h-7 text-xs" onClick={() => handleAcceptInvite(inv.id)}>
+                                <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                                Accept
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleDeclineInvite(inv.id)}>
+                                <XCircle className="h-3.5 w-3.5 mr-1" />
+                                Decline
+                              </Button>
+                            </div>
+                          )}
+                          {inv.status === 'accepted' && (
+                            <div className="flex items-center gap-1.5 mt-2 text-xs text-status-completed font-medium">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Accepted
+                            </div>
+                          )}
+                          {inv.status === 'declined' && (
+                            <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
+                              <XCircle className="h-3.5 w-3.5" />
+                              Declined
+                              <button
+                                onClick={() => dismissInvitation(inv.id)}
+                                className="ml-auto text-[10px] text-muted-foreground hover:text-foreground"
+                              >
+                                Dismiss
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )
+              )}
+
+              {invitationsTab === 'sent' && (
+                sentInvitations.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Send className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">No invitations sent yet</p>
+                    <p className="text-xs mt-1">Invite members from a workspace's Team page</p>
+                  </div>
+                ) : (
+                  sentInvitations.map((inv) => (
+                    <div key={inv.id} className="p-4 rounded-xl border border-border bg-muted/20 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
+                        {inv.inviteeName.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {inv.inviteeName} <span className="text-muted-foreground font-normal">({inv.inviteeEmail})</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Invited to <span className="font-medium">{inv.workspaceName}</span> as {inv.role} · {formatTimeAgo(inv.createdAt)}
+                        </p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${inv.status === 'pending' ? 'bg-status-amber/10 text-status-amber' : inv.status === 'accepted' ? 'bg-status-completed/10 text-status-completed' : 'bg-muted text-muted-foreground'}`}>
+                        {inv.status}
+                      </span>
+                    </div>
+                  ))
+                )
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Join Code Input */}
         {showJoinInput && (
@@ -151,18 +361,20 @@ export function DashboardPage() {
           ) : (
             <div className="grid gap-4">
               {workspaces.map((workspace) => (
-                <button
+                <div
                   key={workspace.id}
-                  onClick={() => handleSelectWorkspace(workspace)}
-                  className="w-full p-6 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-lg transition-all text-left group"
+                  className="w-full p-6 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-lg transition-all group"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-xl font-bold text-primary">
+                    <button
+                      onClick={() => handleSelectWorkspace(workspace)}
+                      className="flex items-center gap-4 flex-1 text-left min-w-0"
+                    >
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-xl font-bold text-primary shrink-0">
                         {workspace.name.charAt(0)}
                       </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors truncate">
                           {workspace.name}
                         </h3>
                         <div className="flex items-center gap-3 mt-1">
@@ -174,15 +386,37 @@ export function DashboardPage() {
                           </span>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
+                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${roleColors[workspace.role]}`}>
                         {workspace.role}
                       </span>
+                      {workspace.role === 'owner' && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={(e) => { e.stopPropagation(); archiveWorkspace(workspace.id); toast.success(`"${workspace.name}" archived`); }}
+                            title="Archive workspace"
+                          >
+                            <Archive className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(workspace.id); }}
+                            title="Delete workspace"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                       <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                     </div>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -241,6 +475,33 @@ export function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Delete workspace confirmation */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete workspace?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{wsToDelete?.name}</strong> and all of its tasks. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteConfirmId && wsToDelete) {
+                  deleteWorkspace(deleteConfirmId);
+                  toast.success(`"${wsToDelete.name}" permanently deleted`);
+                }
+                setDeleteConfirmId(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {successModal && (
         <SuccessModal isOpen onClose={() => setSuccessModal(null)} title={successModal.title} message={successModal.message} />

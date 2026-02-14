@@ -49,7 +49,7 @@ interface WorkspaceStore {
   columns: WorkspaceColumn[];
 
   setCurrentWorkspace: (workspace: Workspace | null) => void;
-  addWorkspace: (name: string) => Workspace;
+  addWorkspace: (name: string, role?: WorkspaceRole) => Workspace;
   archiveWorkspace: (id: string) => void;
   restoreWorkspace: (id: string) => void;
   setActivePreset: (presetId: string | null) => void;
@@ -64,6 +64,9 @@ interface WorkspaceStore {
   addMember: (name: string, email: string, role: WorkspaceRole) => void;
   removeMember: (id: string) => void;
   updateMemberRole: (id: string, role: WorkspaceRole) => void;
+
+  // Active workspace management
+  deleteWorkspace: (id: string) => void;
 
   // Archived
   deleteArchivedWorkspace: (id: string) => void;
@@ -92,8 +95,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
   setCurrentWorkspace: (workspace) => set({ currentWorkspace: workspace, columns: DEFAULT_COLS }),
 
-  addWorkspace: (name) => {
-    const ws: Workspace = { id: Date.now().toString(), name, code: `WS-${Math.random().toString(36).substring(2, 6).toUpperCase()}`, role: 'owner', memberCount: 1 };
+  addWorkspace: (name, role = 'owner') => {
+    const ws: Workspace = { id: Date.now().toString(), name, code: `WS-${Math.random().toString(36).substring(2, 6).toUpperCase()}`, role, memberCount: 1 };
     set((state) => ({ workspaces: [...state.workspaces, ws] }));
     return ws;
   },
@@ -185,6 +188,14 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   updateMemberRole: (id, role) => {
     set((state) => ({
       members: state.members.map((m) => (m.id === id ? { ...m, role } : m)),
+    }));
+  },
+
+  // ── Active workspace management ──────────────────────────────────
+  deleteWorkspace: (id) => {
+    set((state) => ({
+      workspaces: state.workspaces.filter((w) => w.id !== id),
+      currentWorkspace: state.currentWorkspace?.id === id ? null : state.currentWorkspace,
     }));
   },
 

@@ -94,7 +94,7 @@ export function TaskCard({ task }: TaskCardProps) {
       {...dragProps}
       className={cn(
         'group relative bg-card rounded-md border shadow-card transition-all duration-150',
-        canMove ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
+        !canMove && 'cursor-pointer',
         'hover:shadow-card-hover hover:border-primary/30',
         isDragging && 'shadow-lg scale-[1.02] ring-2 ring-primary/20',
         isSelected ? 'border-primary ring-2 ring-primary/30' : 'border-border',

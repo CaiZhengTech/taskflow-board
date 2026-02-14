@@ -175,12 +175,13 @@ export function ManagerDashboardWidgets() {
                     paddingAngle={2}
                     labelLine={false}
                     label={renderPieLabel}
+                    isAnimationActive={false}
                   >
                     {distributionData.map((entry, i) => (
                       <Cell key={i} fill={entry.fill} stroke="transparent" />
                     ))}
                   </Pie>
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip />} animationDuration={0} />
                   <Legend
                     formatter={(value) => <span className="text-xs text-muted-foreground">{value}</span>}
                     iconSize={8}
@@ -206,8 +207,8 @@ export function ManagerDashboardWidgets() {
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
                 <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} width={60} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.3)' }} />
-                <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={24}>
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.3)' }} animationDuration={0} />
+                <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={24} isAnimationActive={false}>
                   {priorityData.map((entry, i) => (
                     <Cell key={i} fill={entry.fill} />
                   ))}
@@ -332,12 +333,13 @@ export function EmployeeDashboardWidgets() {
                   paddingAngle={2}
                   labelLine={false}
                   label={renderPieLabel}
+                  isAnimationActive={false}
                 >
                   {myDistribution.map((entry, i) => (
                     <Cell key={i} fill={entry.fill} stroke="transparent" />
                   ))}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip />} animationDuration={0} />
                 <Legend
                   formatter={(value) => <span className="text-xs text-muted-foreground">{value}</span>}
                   iconSize={8}
