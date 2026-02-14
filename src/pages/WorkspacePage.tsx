@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useWorkspaceStore, type WorkspaceRole } from '@/stores/workspaceStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useUiStore } from '@/stores/uiStore';
 import { BoardFilters } from '@/components/board/BoardFilters';
@@ -12,6 +12,24 @@ import { ColumnManagerSheet } from '@/components/board/ColumnManagerSheet';
 import { ManagerDashboardWidgets, EmployeeDashboardWidgets } from '@/components/dashboard/DashboardWidgets';
 import { WithRole } from '@/components/guards/withRole';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Users,
   Settings,
@@ -24,7 +42,12 @@ import {
   BarChart3,
   ArrowLeft,
   Columns3,
+  Copy,
+  Trash2,
+  UserMinus,
+  Check,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const roleIcons: Record<string, typeof Crown> = { owner: Crown, manager: Shield, contributor: Pencil, viewer: Eye };
 const roleDescriptions: Record<string, string> = {
@@ -37,7 +60,7 @@ const roleDescriptions: Record<string, string> = {
 export function WorkspacePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { workspaces, currentWorkspace, setCurrentWorkspace, members, activePreset, setActivePreset } = useWorkspaceStore();
+  const { workspaces, currentWorkspace, setCurrentWorkspace, members, activePreset, setActivePreset, addMember, removeMember, updateMemberRole } = useWorkspaceStore();
   const { selection, clearSelection } = useTaskStore();
   const { rolePreviewToggle } = useUiStore();
 
@@ -45,6 +68,12 @@ export function WorkspacePage() {
   const [showCollaborators, setShowCollaborators] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
   const [showColumnManager, setShowColumnManager] = useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteName, setInviteName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<WorkspaceRole>('contributor');
+  const [removeMemberId, setRemoveMemberId] = useState<string | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   // Sync workspace from URL
   useEffect(() => {
@@ -72,6 +101,37 @@ export function WorkspacePage() {
   }
 
   if (showCollaborators) {
+    const handleCopyCode = async () => {
+      try {
+        await navigator.clipboard.writeText(workspace.code);
+        setCodeCopied(true);
+        toast.success('Invite code copied to clipboard');
+        setTimeout(() => setCodeCopied(false), 2000);
+      } catch {
+        toast.error('Failed to copy code');
+      }
+    };
+
+    const handleInvite = () => {
+      if (!inviteName.trim() || !inviteEmail.trim()) return;
+      addMember(inviteName.trim(), inviteEmail.trim(), inviteRole);
+      toast.success(`${inviteName.trim()} has been invited as ${inviteRole}`);
+      setInviteName('');
+      setInviteEmail('');
+      setInviteRole('contributor');
+      setShowInviteForm(false);
+    };
+
+    const handleRemoveMember = () => {
+      if (!removeMemberId) return;
+      const member = members.find(m => m.id === removeMemberId);
+      removeMember(removeMemberId);
+      toast.success(`${member?.name || 'Member'} has been removed`);
+      setRemoveMemberId(null);
+    };
+
+    const memberToRemove = members.find(m => m.id === removeMemberId);
+
     return (
       <div className="flex-1">
         <div className="border-b border-border bg-card px-6 py-3">
@@ -99,16 +159,49 @@ export function WorkspacePage() {
                 {workspace.code}
               </p>
             </div>
-            <Button variant="outline" size="sm">Copy Code</Button>
+            <Button variant="outline" size="sm" onClick={handleCopyCode}>
+              {codeCopied ? <Check className="h-3.5 w-3.5 mr-1.5" /> : <Copy className="h-3.5 w-3.5 mr-1.5" />}
+              {codeCopied ? 'Copied' : 'Copy Code'}
+            </Button>
           </div>
 
+          {/* Invite form */}
           <WithRole action="manage_members">
-            <Button className="mb-6"><UserPlus className="h-4 w-4 mr-2" />Invite Member</Button>
+            {!showInviteForm ? (
+              <Button className="mb-6" onClick={() => setShowInviteForm(true)}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Invite Member
+              </Button>
+            ) : (
+              <div className="mb-6 p-5 rounded-xl border border-primary/30 bg-primary/5 animate-fade-in space-y-4">
+                <h3 className="text-sm font-semibold text-foreground">Invite a New Member</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Input placeholder="Full name" value={inviteName} onChange={(e) => setInviteName(e.target.value)} />
+                  <Input placeholder="Email address" type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as WorkspaceRole)}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="contributor">Contributor</SelectItem>
+                      <SelectItem value="viewer">Viewer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={handleInvite} disabled={!inviteName.trim() || !inviteEmail.trim()}>Send Invite</Button>
+                  <Button variant="ghost" onClick={() => setShowInviteForm(false)}>Cancel</Button>
+                </div>
+              </div>
+            )}
           </WithRole>
 
+          {/* Members list */}
           <div className="space-y-3">
             {members.map((member) => {
               const RoleIcon = roleIcons[member.role] || Eye;
+              const isOwner = member.id === '1';
               return (
                 <div key={member.id} className="p-4 rounded-xl border border-border bg-card flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -118,19 +211,45 @@ export function WorkspacePage() {
                     <div>
                       <h3 className="font-medium text-foreground">
                         {member.name}
-                        {member.id === '1' && <span className="text-muted-foreground ml-2">(You)</span>}
+                        {isOwner && <span className="text-muted-foreground ml-2">(You)</span>}
                       </h3>
                       <p className="text-sm text-muted-foreground">{member.email}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className={`px-3 py-1.5 rounded-lg border text-sm font-medium capitalize flex items-center gap-2 ${roleColors[member.role]}`}>
-                      <RoleIcon className="h-3.5 w-3.5" />
-                      {member.role}
-                    </div>
                     <WithRole action="manage_members">
-                      {member.id !== '1' && (
-                        <Button variant="ghost" size="sm"><Settings className="h-4 w-4" /></Button>
+                      {!isOwner ? (
+                        <Select
+                          value={member.role}
+                          onValueChange={(v) => {
+                            updateMemberRole(member.id, v as WorkspaceRole);
+                            toast.success(`${member.name}'s role changed to ${v}`);
+                          }}
+                        >
+                          <SelectTrigger className="w-[130px] h-8 text-xs">
+                            <div className="flex items-center gap-1.5">
+                              <RoleIcon className="h-3.5 w-3.5" />
+                              <SelectValue />
+                            </div>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="manager">Manager</SelectItem>
+                            <SelectItem value="contributor">Contributor</SelectItem>
+                            <SelectItem value="viewer">Viewer</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className={`px-3 py-1.5 rounded-lg border text-sm font-medium capitalize flex items-center gap-2 ${roleColors[member.role]}`}>
+                          <RoleIcon className="h-3.5 w-3.5" />
+                          {member.role}
+                        </div>
+                      )}
+                    </WithRole>
+                    <WithRole action="manage_members">
+                      {!isOwner && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setRemoveMemberId(member.id)}>
+                          <UserMinus className="h-4 w-4" />
+                        </Button>
                       )}
                     </WithRole>
                   </div>
@@ -160,6 +279,25 @@ export function WorkspacePage() {
             </div>
           </div>
         </div>
+
+        {/* Remove member dialog */}
+        <AlertDialog open={!!removeMemberId} onOpenChange={(open) => !open && setRemoveMemberId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove {memberToRemove?.name}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will revoke their access to <span className="font-medium">{workspace.name}</span>.
+                They can be re-invited later with a new invite.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleRemoveMember} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                Remove
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
