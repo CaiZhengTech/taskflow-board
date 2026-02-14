@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
-const PHRASES = ['clarity', 'speed', 'focus', 'confidence', 'simplicity'];
+const PHRASES = ['Efficiency', 'Momentum', 'Precision', 'Flow', 'Impact'];
 const INTERVAL = 2500;
 
 export function DynamicPhrases() {

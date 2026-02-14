@@ -18,12 +18,15 @@ import {
   FolderOpen,
   BarChart3,
   LayoutDashboard,
+  RotateCcw,
+  Trash2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { workspaces, archivedWorkspaces, addWorkspace, setCurrentWorkspace } = useWorkspaceStore();
+  const { workspaces, archivedWorkspaces, addWorkspace, setCurrentWorkspace, restoreWorkspace, deleteArchivedWorkspace } = useWorkspaceStore();
   const { rolePreviewToggle, setRolePreviewToggle } = useUiStore();
 
   const [joinCode, setJoinCode] = useState('');
@@ -203,7 +206,7 @@ export function DashboardPage() {
                 <p className="text-muted-foreground py-4">No archived workspaces.</p>
               ) : (
                 archivedWorkspaces.map((ws) => (
-                  <div key={ws.id} className="p-6 rounded-xl border border-border bg-muted/30 opacity-75">
+                  <div key={ws.id} className="p-6 rounded-xl border border-border bg-muted/30">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-xl font-bold text-muted-foreground">
@@ -221,7 +224,15 @@ export function DashboardPage() {
                           </div>
                         </div>
                       </div>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">Archived</span>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => { restoreWorkspace(ws.id); toast.success(`"${ws.name}" restored`); }}>
+                          <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                          Restore
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => { deleteArchivedWorkspace(ws.id); toast.success(`"${ws.name}" permanently deleted`); }}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))

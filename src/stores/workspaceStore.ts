@@ -59,6 +59,14 @@ interface WorkspaceStore {
   updateColumnColor: (id: string, color: string) => void;
   removeColumn: (id: string) => void;
   reorderColumns: (fromIndex: number, toIndex: number) => void;
+
+  // Team management
+  addMember: (name: string, email: string, role: WorkspaceRole) => void;
+  removeMember: (id: string) => void;
+  updateMemberRole: (id: string, role: WorkspaceRole) => void;
+
+  // Archived
+  deleteArchivedWorkspace: (id: string) => void;
 }
 
 const mockMembers: WorkspaceMember[] = [
@@ -157,5 +165,33 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       cols.splice(toIndex, 0, moved);
       return { columns: cols };
     });
+  },
+
+  // ── Team management ──────────────────────────────────────────────
+  addMember: (name, email, role) => {
+    const id = `member-${Date.now()}`;
+    const avatarInitial = name.charAt(0).toUpperCase();
+    set((state) => ({
+      members: [...state.members, { id, name, email, role, avatarInitial }],
+    }));
+  },
+
+  removeMember: (id) => {
+    set((state) => ({
+      members: state.members.filter((m) => m.id !== id),
+    }));
+  },
+
+  updateMemberRole: (id, role) => {
+    set((state) => ({
+      members: state.members.map((m) => (m.id === id ? { ...m, role } : m)),
+    }));
+  },
+
+  // ── Archived ─────────────────────────────────────────────────────
+  deleteArchivedWorkspace: (id) => {
+    set((state) => ({
+      archivedWorkspaces: state.archivedWorkspaces.filter((w) => w.id !== id),
+    }));
   },
 }));
