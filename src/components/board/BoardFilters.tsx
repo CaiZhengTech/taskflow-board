@@ -28,12 +28,13 @@ export function BoardFilters() {
   return (
     <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card/50">
       <div className="relative flex-1 max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <Input
           value={searchInput}
           onChange={(e) => handleSearchChange(e.target.value)}
           placeholder="Search tasks..."
           className="pl-9 h-8"
+          aria-label="Search tasks"
         />
       </div>
 

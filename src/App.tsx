@@ -1,5 +1,5 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { RouteGuard } from '@/components/guards/RouteGuard';
 import { AppShell } from '@/layouts/AppShell';
 import { LandingPage } from './pages/LandingPage';
@@ -10,6 +10,32 @@ import { ArchivedPage } from './pages/ArchivedPage';
 import NotFound from './pages/NotFound';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
+
+/**
+ * Announces route changes to screen readers by updating a live region.
+ * Maps pathnames to human-friendly page titles.
+ */
+function RouteAnnouncer() {
+  const location = useLocation();
+  const [announcement, setAnnouncement] = useState('');
+
+  useEffect(() => {
+    const path = location.pathname;
+    let title = 'Page';
+    if (path === '/') title = 'Landing Page';
+    else if (path.includes('/dashboard')) title = 'Dashboard';
+    else if (path.includes('/board')) title = 'Board';
+    else if (path.includes('/archived')) title = 'Archived Tasks';
+    else if (path.includes('/settings')) title = 'Settings';
+    setAnnouncement(`Navigated to ${title}`);
+  }, [location.pathname]);
+
+  return (
+    <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+      {announcement}
+    </div>
+  );
+}
 
 // Error boundary to prevent full white-screen crashes
 class ErrorBoundary extends Component<
@@ -49,6 +75,7 @@ const App = () => {
   return (
     <ErrorBoundary>
     <BrowserRouter>
+      <RouteAnnouncer />
       <Routes>
         {/* Public */}
         <Route path="/" element={<LandingPage />} />

@@ -328,7 +328,7 @@ function SortableColumnRow({
         ref={setActivatorNodeRef}
         {...attributes}
         {...listeners}
-        className="p-0.5 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none shrink-0"
+        className="p-0.5 text-muted-foreground hover:text-foreground touch-none shrink-0"
         aria-label="Drag to reorder"
       >
         <GripVertical className="h-4 w-4" />

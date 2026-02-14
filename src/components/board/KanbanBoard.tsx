@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -12,13 +12,18 @@ import {
   useSensors,
   pointerWithin,
   rectIntersection,
+  closestCenter,
   type CollisionDetection,
   MeasuringStrategy,
 } from '@dnd-kit/core';
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
 import { Task, TaskStatus, getColumnColorStyle } from '@/types/task';
 import { useTaskStore, filterTasks } from '@/stores/taskStore';
-import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useWorkspaceStore, type WorkspaceColumn } from '@/stores/workspaceStore';
 import { useHasPermission } from '@/components/guards/withRole';
 import { KanbanColumn } from './KanbanColumn';
 import { TaskCardOverlay } from './TaskCard';
@@ -29,29 +34,46 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 /**
- * Custom collision detection: try pointerWithin first (precise), fall back to
- * rectIntersection (generous). This makes dropping into columns feel natural —
- * you don't need to hover exactly over a card, just anywhere inside the column.
+ * Custom collision detection: for task drags, try pointerWithin first (precise)
+ * then fall back to rectIntersection (generous). For column drags, use
+ * closestCenter which avoids jitter by picking the nearest center consistently.
  */
-const kanbanCollision: CollisionDetection = (args) => {
-  const pointerCollisions = pointerWithin(args);
-  if (pointerCollisions.length > 0) return pointerCollisions;
-  return rectIntersection(args);
-};
+function createKanbanCollision(activeTypeRef: React.RefObject<DragItemType | null>): CollisionDetection {
+  return (args) => {
+    if (activeTypeRef.current === 'column') {
+      return closestCenter(args);
+    }
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) return pointerCollisions;
+    return rectIntersection(args);
+  };
+}
 
 const measuring = {
   droppable: { strategy: MeasuringStrategy.WhileDragging },
 };
 
+type DragItemType = 'task' | 'column';
+
 export function KanbanBoard() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [activeColumn, setActiveColumn] = useState<WorkspaceColumn | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [createStatus, setCreateStatus] = useState<TaskStatus>('backlog');
   const [deleteColumnId, setDeleteColumnId] = useState<string | null>(null);
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColName, setNewColName] = useState('');
+  const dndAnnouncement = useRef<HTMLDivElement>(null);
+  const activeTypeRef = useRef<DragItemType | null>(null);
+  const collisionDetection = useMemo(() => createKanbanCollision(activeTypeRef), []);
+
+  /** Announce drag events for screen readers */
+  const announce = useCallback((msg: string) => {
+    if (dndAnnouncement.current) dndAnnouncement.current.textContent = msg;
+  }, []);
 
   const allTasks = useTaskStore(state => state.tasks);
   const filters = useTaskStore(state => state.filters);
@@ -61,30 +83,49 @@ export function KanbanBoard() {
   const setSelectedTaskId = useTaskStore(state => state.setSelectedTaskId);
   const columns = useWorkspaceStore(state => state.columns);
   const addColumn = useWorkspaceStore(state => state.addColumn);
+  const reorderColumns = useWorkspaceStore(state => state.reorderColumns);
   const canManageCols = useHasPermission('manage_columns');
-  const columnIds = useMemo(() => new Set(columns.map(c => c.id)), [columns]);
+  const columnIds = useMemo(() => columns.map(c => c.id), [columns]);
 
   const filteredTasks = useMemo(() => filterTasks(allTasks, filters), [allTasks, filters]);
   const selectedTask = allTasks.find(t => t.id === selectedTaskId);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 10 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    const tasks = useTaskStore.getState().tasks;
-    const task = tasks.find(t => t.id === event.active.id);
-    if (task) setActiveTask(task);
-  }, []);
+    const id = event.active.id as string;
+    const type = event.active.data.current?.type as DragItemType | undefined;
+    activeTypeRef.current = type ?? 'task';
+
+    if (type === 'column') {
+      const col = useWorkspaceStore.getState().columns.find(c => c.id === id);
+      if (col) {
+        setActiveColumn(col);
+        announce(`Picked up column: ${col.title}`);
+      }
+    } else {
+      const tasks = useTaskStore.getState().tasks;
+      const task = tasks.find(t => t.id === id);
+      if (task) {
+        setActiveTask(task);
+        announce(`Picked up task: ${task.title}`);
+      }
+    }
+  }, [announce]);
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) return;
+
+    // If we're dragging a column, don't do task-level logic
+    if (active.data.current?.type === 'column') return;
+
     const activeId = active.id as string;
     const overId = over.id as string;
-    // Always read fresh state to avoid stale closure issues
     const tasks = useTaskStore.getState().tasks;
     const colIds = useWorkspaceStore.getState().columns.map(c => c.id);
     const activeTaskItem = tasks.find(t => t.id === activeId);
@@ -107,33 +148,56 @@ export function KanbanBoard() {
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
+    activeTypeRef.current = null;
+
+    // ─── Column drag end ──────────────────────────────────────────
+    if (active.data.current?.type === 'column') {
+      setActiveColumn(null);
+      if (!over || active.id === over.id) {
+        announce('Drop cancelled');
+        return;
+      }
+      const cols = useWorkspaceStore.getState().columns;
+      const fromIndex = cols.findIndex(c => c.id === active.id);
+      const toIndex = cols.findIndex(c => c.id === over.id);
+      if (fromIndex !== -1 && toIndex !== -1) {
+        reorderColumns(fromIndex, toIndex);
+        announce(`Moved column ${cols[fromIndex].title}`);
+      }
+      return;
+    }
+
+    // ─── Task drag end ────────────────────────────────────────────
     setActiveTask(null);
-    if (!over) return;
+    if (!over) {
+      announce('Drop cancelled');
+      return;
+    }
     const activeId = active.id as string;
     const overId = over.id as string;
     if (activeId === overId) return;
 
-    // Read fresh state
     const tasks = useTaskStore.getState().tasks;
     const colIds = useWorkspaceStore.getState().columns.map(c => c.id);
     const activeTaskItem = tasks.find(t => t.id === activeId);
     if (!activeTaskItem) return;
 
-    // Dropped over a column droppable (empty space or bottom of column)
     const isOverColumn = colIds.includes(overId);
     if (isOverColumn) {
       const targetStatus = overId as TaskStatus;
       const targetCount = tasks.filter(t => t.status === targetStatus && t.id !== activeId).length;
       moveTask(activeId, targetStatus, targetCount);
+      const colName = useWorkspaceStore.getState().columns.find(c => c.id === targetStatus)?.title ?? targetStatus;
+      announce(`Dropped ${activeTaskItem.title} into ${colName}`);
       return;
     }
 
-    // Dropped over a task card — reorder within same column
     const overTask = tasks.find(t => t.id === overId);
     if (overTask && activeTaskItem.status === overTask.status) {
       reorderTasks(activeTaskItem.status, activeId, overId);
+      announce(`Reordered ${activeTaskItem.title}`);
     }
-  }, [moveTask, reorderTasks]);
+  }, [moveTask, reorderTasks, reorderColumns, announce]);
 
   const handleAddTask = (status: TaskStatus) => {
     setCreateStatus(status);
@@ -142,25 +206,30 @@ export function KanbanBoard() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+      {/* Screen-reader-only live region for DnD announcements */}
+      <div ref={dndAnnouncement} role="status" aria-live="assertive" aria-atomic="true" className="sr-only" />
+
       <DndContext
         sensors={sensors}
-        collisionDetection={kanbanCollision}
+        collisionDetection={collisionDetection}
         measuring={measuring}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
         <div className="flex-1 flex gap-3 sm:gap-4 p-3 sm:p-4 overflow-x-auto scrollbar-thin">
-          {columns.map(column => (
-            <KanbanColumn
-              key={column.id}
-              id={column.id}
-              title={column.title}
-              colorToken={column.color}
-              onAddTask={handleAddTask}
-              onRequestDelete={setDeleteColumnId}
-            />
-          ))}
+          <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
+            {columns.map(column => (
+              <KanbanColumn
+                key={column.id}
+                id={column.id}
+                title={column.title}
+                colorToken={column.color}
+                onAddTask={handleAddTask}
+                onRequestDelete={setDeleteColumnId}
+              />
+            ))}
+          </SortableContext>
 
           {/* Add Column card — appears at end of board for managers+ */}
           {canManageCols && (
@@ -217,6 +286,21 @@ export function KanbanBoard() {
           {activeTask && (
             <div className="rotate-3 scale-105 opacity-90">
               <TaskCardOverlay task={activeTask} />
+            </div>
+          )}
+          {activeColumn && (
+            <div className="opacity-80 rotate-1 scale-[1.02]">
+              <div className={cn(
+                'min-w-[270px] w-[280px] rounded-xl border-2 border-primary/40 bg-card shadow-xl p-4'
+              )}>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className={cn('w-3 h-3 rounded-full', getColumnColorStyle(activeColumn.color).dot)} />
+                  <h3 className="text-sm font-semibold text-foreground">{activeColumn.title}</h3>
+                </div>
+                <div className="h-32 rounded-lg bg-muted/30 border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
+                  Column contents
+                </div>
+              </div>
             </div>
           )}
         </DragOverlay>

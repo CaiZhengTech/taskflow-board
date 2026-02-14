@@ -28,9 +28,12 @@ export function useCurrentRole(): WorkspaceRole {
   const rolePreview = useUiStore((s) => s.rolePreviewToggle);
   const actualRole = currentWorkspace?.role ?? 'viewer';
 
-  // When previewing as employee, cap the role to contributor
+  // When previewing as employee, cap to contributor — but never ABOVE actualRole
   if (rolePreview === 'employee') {
-    return 'contributor';
+    const hierarchy: WorkspaceRole[] = ['viewer', 'contributor', 'manager', 'owner'];
+    const actualIdx = hierarchy.indexOf(actualRole);
+    const contributorIdx = hierarchy.indexOf('contributor');
+    return hierarchy[Math.min(actualIdx, contributorIdx)];
   }
   return actualRole;
 }

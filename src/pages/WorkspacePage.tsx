@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkspaceStore, type WorkspaceRole } from '@/stores/workspaceStore';
+import { useInvitationStore } from '@/stores/invitationStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useUiStore } from '@/stores/uiStore';
 import { BoardFilters } from '@/components/board/BoardFilters';
@@ -46,6 +47,7 @@ import {
   Trash2,
   UserMinus,
   Check,
+  Archive,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -60,7 +62,7 @@ const roleDescriptions: Record<string, string> = {
 export function WorkspacePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { workspaces, currentWorkspace, setCurrentWorkspace, members, activePreset, setActivePreset, addMember, removeMember, updateMemberRole } = useWorkspaceStore();
+  const { workspaces, currentWorkspace, setCurrentWorkspace, members, activePreset, setActivePreset, addMember, removeMember, updateMemberRole, archiveWorkspace, deleteWorkspace } = useWorkspaceStore();
   const { selection, clearSelection } = useTaskStore();
   const { rolePreviewToggle } = useUiStore();
 
@@ -74,6 +76,9 @@ export function WorkspacePage() {
   const [inviteRole, setInviteRole] = useState<WorkspaceRole>('contributor');
   const [removeMemberId, setRemoveMemberId] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [deleteWsConfirm, setDeleteWsConfirm] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState('');
+  const sendInvitation = useInvitationStore(s => s.sendInvitation);
 
   // Sync workspace from URL
   useEffect(() => {
@@ -114,10 +119,24 @@ export function WorkspacePage() {
 
     const handleInvite = () => {
       if (!inviteName.trim() || !inviteEmail.trim()) return;
+      // Add to workspace members
       addMember(inviteName.trim(), inviteEmail.trim(), inviteRole);
-      toast.success(`${inviteName.trim()} has been invited as ${inviteRole}`);
+      // Create a real invitation record
+      sendInvitation({
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
+        workspaceCode: workspace.code,
+        invitedBy: 'You',
+        invitedByAvatar: 'Y',
+        inviteeEmail: inviteEmail.trim(),
+        inviteeName: inviteName.trim(),
+        role: inviteRole,
+        message: inviteMessage.trim() || undefined,
+      });
+      toast.success(`Invitation sent to ${inviteName.trim()} as ${inviteRole}`);
       setInviteName('');
       setInviteEmail('');
+      setInviteMessage('');
       setInviteRole('contributor');
       setShowInviteForm(false);
     };
@@ -179,6 +198,11 @@ export function WorkspacePage() {
                   <Input placeholder="Full name" value={inviteName} onChange={(e) => setInviteName(e.target.value)} />
                   <Input placeholder="Email address" type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
                 </div>
+                <Input
+                  placeholder="Add a personal message (optional)"
+                  value={inviteMessage}
+                  onChange={(e) => setInviteMessage(e.target.value)}
+                />
                 <div className="flex items-center gap-3">
                   <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as WorkspaceRole)}>
                     <SelectTrigger className="w-40">
@@ -336,6 +360,34 @@ export function WorkspacePage() {
             Team ({members.length})
           </Button>
 
+          {/* Workspace owner actions: archive & delete */}
+          {workspace.role === 'owner' && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  archiveWorkspace(workspace.id);
+                  toast.success(`"${workspace.name}" archived`);
+                  navigate('/app/dashboard');
+                }}
+              >
+                <Archive className="h-4 w-4 mr-1.5" />
+                Archive
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setDeleteWsConfirm(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                Delete
+              </Button>
+            </>
+          )}
+
           <WithRole action="create_task">
             <Button size="sm" onClick={() => setIsCreateModalOpen(true)}>New Task</Button>
           </WithRole>
@@ -365,6 +417,31 @@ export function WorkspacePage() {
         open={showColumnManager}
         onOpenChange={setShowColumnManager}
       />
+
+      {/* Delete workspace confirmation dialog */}
+      <AlertDialog open={deleteWsConfirm} onOpenChange={setDeleteWsConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete workspace?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{workspace.name}</strong> and all of its tasks, columns, and members. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                deleteWorkspace(workspace.id);
+                toast.success(`"${workspace.name}" permanently deleted`);
+                navigate('/app/dashboard');
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

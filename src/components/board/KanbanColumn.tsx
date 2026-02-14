@@ -1,6 +1,11 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { TaskStatus, getColumnColorStyle, AVAILABLE_COLUMN_COLORS } from '@/types/task';
 import { useTaskStore, getTasksByStatus } from '@/stores/taskStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -16,7 +21,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { Plus, MoreHorizontal, Pencil, Palette, Trash2 } from 'lucide-react';
+import { Plus, MoreHorizontal, Pencil, Palette, Trash2, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface KanbanColumnProps {
@@ -51,8 +56,23 @@ export function KanbanColumn({ id, title, colorToken, onAddTask, onRequestDelete
     getTasksByStatus(allTasks, filters, id),
     [allTasks, filters, id]
   );
-  
-  const { setNodeRef, isOver } = useDroppable({ id });
+
+  // ─── Sortable (for column drag & drop) ──────────────────────────
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setSortableRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id,
+    data: { type: 'column' as const },
+    disabled: !canManageCols,
+  });
+
+  // ─── Droppable (for receiving task drops) ───────────────────────
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id });
 
   const colorStyle = getColumnColorStyle(colorToken);
 
@@ -66,9 +86,34 @@ export function KanbanColumn({ id, title, colorToken, onAddTask, onRequestDelete
     setIsRenaming(false);
   };
 
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform ? { ...transform, scaleX: 1, scaleY: 1 } : null),
+    transition: transition ?? 'transform 250ms cubic-bezier(0.25, 1, 0.5, 1)',
+  };
+
   return (
-    <div className="flex flex-col min-w-[270px] w-[270px] sm:min-w-[280px] sm:w-[280px] md:w-auto md:flex-1">
+    <div
+      ref={setSortableRef}
+      style={style}
+      className={cn(
+        'flex flex-col min-w-[270px] w-[270px] sm:min-w-[280px] sm:w-[280px] md:w-auto md:flex-1 will-change-transform',
+        isDragging && 'opacity-30 z-50',
+      )}
+    >
       <div className="flex items-center gap-2 px-3 py-2 mb-2 group/header">
+        {/* Drag handle — only visible to managers */}
+        {canManageCols && (
+          <button
+            {...attributes}
+            {...listeners}
+            className="p-0.5 -ml-1 rounded text-muted-foreground/50 hover:text-muted-foreground touch-none shrink-0 focus-visible:ring-2 ring-primary ring-offset-1 outline-none"
+            aria-label={`Drag to reorder ${title} column`}
+            tabIndex={0}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
+
         <div className={cn('w-3 h-3 rounded-full shrink-0', colorStyle.dot)} />
 
         {isRenaming ? (
@@ -166,7 +211,9 @@ export function KanbanColumn({ id, title, colorToken, onAddTask, onRequestDelete
       </div>
       
       <div
-        ref={setNodeRef}
+        ref={setDroppableRef}
+        role="region"
+        aria-label={`${title} column, ${tasks.length} ${tasks.length === 1 ? 'task' : 'tasks'}`}
         className={cn(
           'flex-1 flex flex-col gap-2 p-3 rounded-xl border min-h-[300px] sm:min-h-[400px] transition-all',
           colorStyle.bg,

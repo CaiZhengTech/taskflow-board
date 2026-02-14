@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Task, TaskStatus, TaskPriority, getColumnColorStyle } from '@/types/task';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useTaskStore } from '@/stores/taskStore';
@@ -22,15 +22,70 @@ interface TaskDetailPanelProps {
   onClose: () => void;
 }
 
+/**
+ * Get all focusable elements inside a container.
+ */
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  const selector =
+    'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  return Array.from(container.querySelectorAll<HTMLElement>(selector));
+}
+
 export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const { updateTask, deleteTask } = useTaskStore();
   const columns = useWorkspaceStore(state => state.columns);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const canEdit = useHasPermission('edit_task');
   const canDelete = useHasPermission('delete_task');
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  // Focus trap: keep Tab / Shift+Tab within the panel
+  const handleFocusTrap = useCallback((e: KeyboardEvent) => {
+    if (e.key !== 'Tab' || !panelRef.current) return;
+    const focusable = getFocusableElements(panelRef.current);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleFocusTrap);
+    return () => document.removeEventListener('keydown', handleFocusTrap);
+  }, [handleFocusTrap]);
+
+  // Auto-focus the close button on mount
+  useEffect(() => {
+    if (panelRef.current) {
+      const firstBtn = panelRef.current.querySelector<HTMLElement>('button');
+      firstBtn?.focus();
+    }
+  }, []);
 
   const handleTitleBlur = () => {
     setIsEditingTitle(false);
@@ -68,15 +123,22 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       <div 
         className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40 animate-fade-in"
         onClick={onClose}
+        aria-hidden="true"
       />
       
       {/* Panel */}
-      <div className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-card border-l border-border shadow-lg z-50 animate-slide-in-right overflow-y-auto">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="task-detail-title"
+        className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-card border-l border-border shadow-lg z-50 animate-slide-in-right overflow-y-auto"
+      >
         <div className="sticky top-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
           <span className="text-xs text-muted-foreground font-mono">
             {task.id}
           </span>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close task details">
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -95,6 +157,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               />
             ) : (
               <h2
+                id="task-detail-title"
                 className={cn(
                   'text-lg font-semibold rounded px-2 py-1 -mx-2',
                   canEdit && 'cursor-pointer hover:bg-muted/50',
