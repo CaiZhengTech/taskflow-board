@@ -62,9 +62,17 @@ export function TaskCard({ task }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     disabled: !canMove,
+    transition: {
+      duration: 200,
+      easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+    },
   });
 
-  const style = { transform: CSS.Transform.toString(transform), transition };
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : undefined,
+  };
 
   const handleClick = (e: React.MouseEvent) => {
     if ((e.metaKey || e.ctrlKey) && canEdit) {
@@ -88,7 +96,7 @@ export function TaskCard({ task }: TaskCardProps) {
         'group relative bg-card rounded-md border shadow-card transition-all duration-150',
         canMove ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
         'hover:shadow-card-hover hover:border-primary/30',
-        isDragging && 'opacity-50 shadow-lg rotate-2 scale-105',
+        isDragging && 'shadow-lg scale-[1.02] ring-2 ring-primary/20',
         isSelected ? 'border-primary ring-2 ring-primary/30' : 'border-border',
       )}
       onClick={handleClick}

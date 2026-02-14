@@ -8,6 +8,7 @@ import { KanbanBoard } from '@/components/board/KanbanBoard';
 import { CreateTaskModal } from '@/components/board/CreateTaskModal';
 import { BoardPresets } from '@/components/board/BoardPresets';
 import { BulkActions } from '@/components/board/BulkActions';
+import { ColumnManagerSheet } from '@/components/board/ColumnManagerSheet';
 import { ManagerDashboardWidgets, EmployeeDashboardWidgets } from '@/components/dashboard/DashboardWidgets';
 import { WithRole } from '@/components/guards/withRole';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import {
   Hash,
   BarChart3,
   ArrowLeft,
+  Columns3,
 } from 'lucide-react';
 
 const roleIcons: Record<string, typeof Crown> = { owner: Crown, manager: Shield, contributor: Pencil, viewer: Eye };
@@ -42,6 +44,7 @@ export function WorkspacePage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showColumnManager, setShowColumnManager] = useState(false);
 
   // Sync workspace from URL
   useEffect(() => {
@@ -183,6 +186,13 @@ export function WorkspacePage() {
             <BoardPresets activePreset={activePreset} onSelectPreset={setActivePreset} />
           </WithRole>
 
+          <WithRole action="manage_columns">
+            <Button variant="ghost" size="sm" onClick={() => setShowColumnManager(true)}>
+              <Columns3 className="h-4 w-4 mr-1.5" />
+              Columns
+            </Button>
+          </WithRole>
+
           <Button variant="ghost" size="sm" onClick={() => setShowCollaborators(true)}>
             <Users className="h-4 w-4 mr-1.5" />
             Team ({members.length})
@@ -211,6 +221,11 @@ export function WorkspacePage() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         defaultStatus="backlog"
+      />
+
+      <ColumnManagerSheet
+        open={showColumnManager}
+        onOpenChange={setShowColumnManager}
       />
     </div>
   );

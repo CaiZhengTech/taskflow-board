@@ -54,7 +54,25 @@ export const COLUMN_COLOR_STYLES: Record<string, { dot: string; bg: string; ring
   'status-ready':      { dot: 'bg-status-ready',      bg: 'bg-status-ready/5 border-status-ready/20',        ring: 'ring-status-ready/30' },
   'status-progress':   { dot: 'bg-status-progress',   bg: 'bg-status-progress/5 border-status-progress/20',  ring: 'ring-status-progress/30' },
   'status-completed':  { dot: 'bg-status-completed',  bg: 'bg-status-completed/5 border-status-completed/20', ring: 'ring-status-completed/30' },
+  'status-rose':       { dot: 'bg-status-rose',       bg: 'bg-status-rose/5 border-status-rose/20',           ring: 'ring-status-rose/30' },
+  'status-orange':     { dot: 'bg-status-orange',     bg: 'bg-status-orange/5 border-status-orange/20',       ring: 'ring-status-orange/30' },
+  'status-amber':      { dot: 'bg-status-amber',      bg: 'bg-status-amber/5 border-status-amber/20',         ring: 'ring-status-amber/30' },
+  'status-teal':       { dot: 'bg-status-teal',       bg: 'bg-status-teal/5 border-status-teal/20',           ring: 'ring-status-teal/30' },
+  'status-indigo':     { dot: 'bg-status-indigo',     bg: 'bg-status-indigo/5 border-status-indigo/20',       ring: 'ring-status-indigo/30' },
 };
+
+/** Palette of available column colors for the color picker */
+export const AVAILABLE_COLUMN_COLORS = [
+  { token: 'status-backlog',   label: 'Slate' },
+  { token: 'status-ready',     label: 'Blue' },
+  { token: 'status-progress',  label: 'Purple' },
+  { token: 'status-completed', label: 'Green' },
+  { token: 'status-rose',      label: 'Rose' },
+  { token: 'status-orange',    label: 'Orange' },
+  { token: 'status-amber',     label: 'Amber' },
+  { token: 'status-teal',      label: 'Teal' },
+  { token: 'status-indigo',    label: 'Indigo' },
+] as const;
 
 const DEFAULT_COLOR_STYLE = { dot: 'bg-muted-foreground', bg: 'bg-muted/5 border-border', ring: 'ring-primary/30' };
 
