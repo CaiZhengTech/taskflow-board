@@ -42,7 +42,7 @@ const kanbanCollision: CollisionDetection = (args) => {
 };
 
 const measuring = {
-  droppable: { strategy: MeasuringStrategy.Always },
+  droppable: { strategy: MeasuringStrategy.WhileDragging },
 };
 
 export function KanbanBoard() {
@@ -74,32 +74,36 @@ export function KanbanBoard() {
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    const task = allTasks.find(t => t.id === event.active.id);
+    const tasks = useTaskStore.getState().tasks;
+    const task = tasks.find(t => t.id === event.active.id);
     if (task) setActiveTask(task);
-  }, [allTasks]);
+  }, []);
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) return;
     const activeId = active.id as string;
     const overId = over.id as string;
-    const activeTaskItem = allTasks.find(t => t.id === activeId);
+    // Always read fresh state to avoid stale closure issues
+    const tasks = useTaskStore.getState().tasks;
+    const colIds = useWorkspaceStore.getState().columns.map(c => c.id);
+    const activeTaskItem = tasks.find(t => t.id === activeId);
     if (!activeTaskItem) return;
 
-    const isOverColumn = columnIds.has(overId);
+    const isOverColumn = colIds.includes(overId);
     if (isOverColumn) {
       const newStatus = overId as TaskStatus;
       if (activeTaskItem.status !== newStatus) {
-        moveTask(activeId, newStatus, allTasks.filter(t => t.status === newStatus).length);
+        moveTask(activeId, newStatus, tasks.filter(t => t.status === newStatus).length);
       }
       return;
     }
 
-    const overTask = allTasks.find(t => t.id === overId);
+    const overTask = tasks.find(t => t.id === overId);
     if (overTask && activeTaskItem.status !== overTask.status) {
       moveTask(activeId, overTask.status, overTask.order_index);
     }
-  }, [allTasks, moveTask, columnIds]);
+  }, [moveTask]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -109,25 +113,27 @@ export function KanbanBoard() {
     const overId = over.id as string;
     if (activeId === overId) return;
 
-    const activeTaskItem = allTasks.find(t => t.id === activeId);
+    // Read fresh state
+    const tasks = useTaskStore.getState().tasks;
+    const colIds = useWorkspaceStore.getState().columns.map(c => c.id);
+    const activeTaskItem = tasks.find(t => t.id === activeId);
     if (!activeTaskItem) return;
 
     // Dropped over a column droppable (empty space or bottom of column)
-    const isOverColumn = columnIds.has(overId);
+    const isOverColumn = colIds.includes(overId);
     if (isOverColumn) {
       const targetStatus = overId as TaskStatus;
-      // Move to end of target column
-      const targetCount = allTasks.filter(t => t.status === targetStatus && t.id !== activeId).length;
+      const targetCount = tasks.filter(t => t.status === targetStatus && t.id !== activeId).length;
       moveTask(activeId, targetStatus, targetCount);
       return;
     }
 
     // Dropped over a task card — reorder within same column
-    const overTask = allTasks.find(t => t.id === overId);
+    const overTask = tasks.find(t => t.id === overId);
     if (overTask && activeTaskItem.status === overTask.status) {
       reorderTasks(activeTaskItem.status, activeId, overId);
     }
-  }, [allTasks, reorderTasks, moveTask, columnIds]);
+  }, [moveTask, reorderTasks]);
 
   const handleAddTask = (status: TaskStatus) => {
     setCreateStatus(status);
