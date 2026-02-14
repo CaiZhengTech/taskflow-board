@@ -28,6 +28,7 @@ interface TaskStore {
   toggleSelection: (id: string) => void;
   selectAll: (status: TaskStatus) => void;
   clearSelection: () => void;
+  migrateTasksToColumn: (fromStatus: TaskStatus, toStatus: TaskStatus) => void;
 }
 
 const demoUser: User = { id: 'user-1', username: 'demo', email: 'demo@taskboard.dev' };
@@ -126,6 +127,22 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   clearSelection: () => set({ selection: new Set<string>() }),
+
+  /** Move all tasks from one status to another (used when deleting a column) */
+  migrateTasksToColumn: (fromStatus: TaskStatus, toStatus: TaskStatus) => {
+    set((state) => {
+      const maxIndex = Math.max(-1, ...state.tasks.filter(t => t.status === toStatus).map(t => t.order_index));
+      let nextIdx = maxIndex + 1;
+      return {
+        tasks: state.tasks.map(t => {
+          if (t.status === fromStatus) {
+            return { ...t, status: toStatus, order_index: nextIdx++, updated_at: new Date().toISOString() };
+          }
+          return t;
+        }),
+      };
+    });
+  },
 }));
 
 // Selectors

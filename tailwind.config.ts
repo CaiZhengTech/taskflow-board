@@ -67,6 +67,11 @@ export default {
           ready: "hsl(var(--status-ready))",
           progress: "hsl(var(--status-progress))",
           completed: "hsl(var(--status-completed))",
+          rose: "hsl(var(--status-rose))",
+          orange: "hsl(var(--status-orange))",
+          amber: "hsl(var(--status-amber))",
+          teal: "hsl(var(--status-teal))",
+          indigo: "hsl(var(--status-indigo))",
         },
       },
       borderRadius: {

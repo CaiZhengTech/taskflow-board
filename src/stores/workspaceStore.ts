@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { DEFAULT_COLUMNS, type Column } from '@/types/task';
+import { DEFAULT_COLUMNS, AVAILABLE_COLUMN_COLORS, type Column } from '@/types/task';
 
 export type WorkspaceRole = 'owner' | 'manager' | 'contributor' | 'viewer';
 
@@ -54,9 +54,11 @@ interface WorkspaceStore {
   restoreWorkspace: (id: string) => void;
   setActivePreset: (presetId: string | null) => void;
   setColumns: (columns: WorkspaceColumn[]) => void;
-  addColumn: (title: string) => void;
+  addColumn: (title: string, color?: string) => void;
   renameColumn: (id: string, title: string) => void;
+  updateColumnColor: (id: string, color: string) => void;
   removeColumn: (id: string) => void;
+  reorderColumns: (fromIndex: number, toIndex: number) => void;
 }
 
 const mockMembers: WorkspaceMember[] = [
@@ -120,15 +122,25 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
   setColumns: (columns) => set({ columns }),
 
-  addColumn: (title) => {
+  addColumn: (title, color) => {
+    const id = title.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') + '_' + Date.now().toString(36);
+    const palette = AVAILABLE_COLUMN_COLORS;
+    const usedColors = new Set(get().columns.map(c => c.color));
+    const nextColor = color ?? palette.find(c => !usedColors.has(c.token))?.token ?? 'status-backlog';
     set((state) => ({
-      columns: [...state.columns, { id: `col-${Date.now()}`, title, color: 'status-backlog' }],
+      columns: [...state.columns, { id, title: title.trim(), color: nextColor }],
     }));
   },
 
   renameColumn: (id, title) => {
     set((state) => ({
-      columns: state.columns.map((c) => (c.id === id ? { ...c, title } : c)),
+      columns: state.columns.map((c) => (c.id === id ? { ...c, title: title.trim() } : c)),
+    }));
+  },
+
+  updateColumnColor: (id, color) => {
+    set((state) => ({
+      columns: state.columns.map((c) => (c.id === id ? { ...c, color } : c)),
     }));
   },
 
@@ -136,5 +148,14 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     set((state) => ({
       columns: state.columns.filter((c) => c.id !== id),
     }));
+  },
+
+  reorderColumns: (fromIndex, toIndex) => {
+    set((state) => {
+      const cols = [...state.columns];
+      const [moved] = cols.splice(fromIndex, 1);
+      cols.splice(toIndex, 0, moved);
+      return { columns: cols };
+    });
   },
 }));

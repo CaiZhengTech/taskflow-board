@@ -48,6 +48,11 @@
     --status-ready: 212 92% 45%;
     --status-progress: 271 81% 56%;
     --status-completed: 142 71% 45%;
+    --status-rose: 347 77% 50%;
+    --status-orange: 24 95% 53%;
+    --status-amber: 38 92% 50%;
+    --status-teal: 172 66% 40%;
+    --status-indigo: 234 89% 62%;
 
     /* Sidebar */
     --sidebar-background: 210 20% 98%;
@@ -108,6 +113,12 @@
     --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.3);
     --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.4), 0 2px 4px -2px hsl(0 0% 0% / 0.3);
     --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.4), 0 4px 6px -4px hsl(0 0% 0% / 0.3);
+    --status-rose: 347 77% 50%;
+    --status-orange: 24 95% 53%;
+    --status-amber: 38 92% 50%;
+    --status-teal: 172 66% 40%;
+    --status-indigo: 234 89% 62%;
+
     --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.3), 0 1px 2px -1px hsl(0 0% 0% / 0.2);
     --shadow-card-hover: 0 4px 12px 0 hsl(0 0% 0% / 0.4), 0 2px 4px -1px hsl(0 0% 0% / 0.3);
   }
